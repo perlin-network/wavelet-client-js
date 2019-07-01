@@ -11,6 +11,12 @@ const TAG_CONTRACT = 2;
 const TAG_STAKE = 3;
 const TAG_BATCH = 4;
 
+/**
+ * Converts a string to a Buffer.
+ *
+ * @param {string} str
+ * @returns {ArrayBuffer}
+ */
 const str2ab = str => {
     const buf = new ArrayBuffer(str.length);
     const view = new Uint8Array(buf);
@@ -51,6 +57,10 @@ if (!ArrayBuffer.transfer) { // Polyfill just in-case.
 }
 
 class PayloadBuilder {
+    /**
+     * A payload builder made for easier handling of binary serialization of
+     * data for Wavelet to ingest.
+     */
     constructor() {
         this.buf = new ArrayBuffer(0);
         this.view = new DataView(this.buf);
@@ -70,36 +80,66 @@ class PayloadBuilder {
         }
     }
 
+    /**
+     * Write a single byte to the payload buffer.
+     *
+     * @param {number} n A single byte.
+     */
     writeByte(n) {
         this.resizeIfNeeded(1);
         this.view.setUint8(this.offset, n);
         this.offset += 1;
     }
 
+    /**
+     * Write an signed little-endian 16-bit integer to the payload buffer.
+     *
+     * @param {number} n
+     */
     writeInt16(n) {
         this.resizeIfNeeded(2);
         this.view.setInt16(this.offset, n, true);
         this.offset += 2;
     }
 
+    /**
+     * Write an signed little-endian 32-bit integer to the payload buffer.
+     *
+     * @param {number} n
+     */
     writeInt32(n) {
         this.resizeIfNeeded(4);
         this.view.setInt32(this.offset, n, true);
         this.offset += 4;
     }
 
+    /**
+     * Write a signed little-endian 64-bit integer to the payload buffer.
+     *
+     * @param {bigint} n
+     */
     writeInt64(n) {
         this.resizeIfNeeded(8);
         this.view.setBigInt64(this.offset, n, true);
         this.offset += 8;
     }
 
+    /**
+     * Write an unsigned little-endian 16-bit integer to the payload buffer.
+     *
+     * @param {number} n
+     */
     writeUint16(n) {
         this.resizeIfNeeded(2);
         this.view.setUint16(this.offset, n, true);
         this.offset += 2;
     }
 
+    /**
+     * Write an unsigned little-endian 32-bit integer to the payload buffer.
+     *
+     * @param {number} n
+     */
     writeUint32(n) {
         this.resizeIfNeeded(4);
         this.view.setUint32(this.offset, n, true);
@@ -117,6 +157,11 @@ class PayloadBuilder {
         this.offset += 8;
     }
 
+    /**
+     * Write a series of bytes to the payload buffer.
+     *
+     * @param {ArrayBufferLike} buf
+     */
     writeBytes(buf) {
         this.resizeIfNeeded(buf.byteLength);
         new Uint8Array(this.buf, this.offset, buf.byteLength).set(buf);
@@ -243,6 +288,18 @@ class Contract {
         return res;
     }
 
+    /**
+     * Performs an official call to a specified smart contract function with a provided gas limit, and a variadic list
+     * of arguments under a provided Wavelet wallet instance.
+     *
+     * @param wallet Wavelet wallet.
+     * @param func_name Name of the smart contract function to call.
+     * @param amount_to_send Amount of PERLs to send simultaneously to the smart contract while
+     * calling a function.
+     * @param gas_limit Gas limit to expend for invoking a smart contract function.
+     * @param {...{type: ('int16'|'int32'|'int64'|'uint16'|'uint32'|'uint64'|'byte'|'raw'|'bytes'|'string'), value: number|string|ArrayBuffer|Uint8Array}} func_params Variadic list of arguments.
+     * @returns {Promise<Object>} Response from the Wavelet node.
+     */
     async call(wallet, func_name, amount_to_send, gas_limit, ...func_params) {
         return await this.client.transfer(wallet, this.contract_id, amount_to_send, gas_limit, func_name, this.parseFunctionParams(...func_params));
     }
@@ -304,6 +361,10 @@ class Contract {
         return builder.getBytes();
     }
 
+    /**
+     * Based on updates to simulation settings for this smart contract, re-build the
+     * smart contracts payload.
+     */
     rebuildContractPayload() {
         const builder = new PayloadBuilder();
         builder.writeUint64(this.contract_payload.round_idx);
@@ -316,6 +377,14 @@ class Contract {
         this.contract_payload_buf = builder.getBytes();
     }
 
+    /**
+     * Fetches and re-loads the memory of the backing WebAssembly VM for this smart contract; optionally
+     * growing the number of memory pages associated to the VM should there be not enough memory to hold
+     * any new updates to the smart contracts memory. init() must be called before this function may be
+     * called.
+     *
+     * @returns {Promise<void>}
+     */
     async fetchAndPopulateMemoryPages() {
         if (this.vm === undefined) throw new Error("init() needs to be called before calling fetchAndPopulateMemoryPages()");
 
@@ -514,8 +583,8 @@ class Wavelet {
     /**
      * Stake some amount of PERLs which is deducted from your wallets balance.
      *
-     * @param {nacl.SignKeyPair} wallet
-     * @param {bigint} amount
+     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
+     * @param {bigint} amount Amount of PERLs to stake.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
@@ -531,9 +600,9 @@ class Wavelet {
     /**
      * Withdraw stake, which is immediately converted into PERLS into your balance.
      *
-     * @param {nacl.SignKeyPair} wallet
-     * @param {bigint} amount
-     * @param {Object=} opts
+     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
+     * @param {bigint} amount Amount of PERLs to withdraw from your stake.
+     * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
     async withdrawStake(wallet, amount, opts = {}) {
@@ -549,8 +618,8 @@ class Wavelet {
      * Request a withdrawal of reward; which after some number of consensus
      * rounds will then convert into PERLs into your balance.
      *
-     * @param {nacl.SignKeyPair} wallet
-     * @param {bigint} amount
+     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
+     * @param {bigint} amount Amount of PERLs to request to withdraw from your rewards.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
@@ -566,10 +635,10 @@ class Wavelet {
     /**
      * Deploy a smart contract with a specified gas limit and set of parameters.
      *
-     * @param {nacl.BoxKeyPair} wallet
-     * @param {Uint8Array} code
-     * @param {bigint} gas_limit
-     * @param {Object=} params
+     * @param {nacl.BoxKeyPair} wallet Wavelet wallet.
+     * @param {Uint8Array} code Binary of your smart contracts WebAssembly code.
+     * @param {bigint} gas_limit Gas limit to expend for creating your smart contract, and invoking its init() function.
+     * @param {Object=} params Parameters to be used for invoking your smart contracts init() function.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
@@ -591,9 +660,9 @@ class Wavelet {
      * Send a transaction on behalf of a specified wallet with a designated
      * tag and payload.
      *
-     * @param {nacl.SignKeyPair} wallet
-     * @param {number} tag
-     * @param {Uint8Array} payload
+     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
+     * @param {number} tag Tag of the transaction.
+     * @param {Uint8Array} payload Binary payload of the transaction.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
@@ -634,8 +703,9 @@ class Wavelet {
     /**
      * Poll for updates to either all transactions in the ledger, or transactions made by a certain sender, or
      * transactions made by a certain creator, or transactions with a specific tag, or just a single transaction.
+     *
      * @param callbacks
-     * @param opts
+     * @param {{id: string|undefined, tag: number|undefined, sender: string|undefined, creator: string|undefined}} opts
      */
     pollTransactions(callbacks = {}, opts = {}) {
         let params = {};
@@ -660,6 +730,11 @@ class Wavelet {
         });
     }
 
+    /**
+     * Poll for finality of consensus rounds, or the pruning of consensus rounds.
+     *
+     * @param callbacks
+     */
     pollConsensus(callbacks = {}) {
         this.pollWebsocket('/poll/consensus', {}, data => {
             switch (data.event) {
@@ -677,6 +752,13 @@ class Wavelet {
         });
     }
 
+    /**
+     * A generic setup function for listening for websocket events from a Wavelet node.
+     *
+     * @param {string} endpoint Websocket endpoint.
+     * @param {Object=} params Query parameters to connect to the endpoint with.
+     * @param {Object=} callback Callback function for each new event from the websocket.
+     */
     pollWebsocket(endpoint, params = {}, callback = {}) {
         let info = url.parse(this.host);
         info.protocol = info.protocol === "https:" ? "wss:" : "ws:";
