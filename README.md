@@ -21,6 +21,10 @@ yarn add wavelet-client
 ## Usage
 
 ```javascript
+const {Wavelet, Contract, TAG_TRANSFER} = require('wavelet-client');
+
+const client = new Wavelet("http://127.0.0.1:9000");
+
 (async() => {
     console.log(await client.getNodeInfo());
     
