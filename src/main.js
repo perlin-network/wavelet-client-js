@@ -583,8 +583,8 @@ class Wavelet {
     /**
      * Stake some amount of PERLs which is deducted from your wallets balance.
      *
-     * @param {nacl.SignKeyPair} wallet
-     * @param {bigint} amount
+     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
+     * @param {bigint} amount Amount of PERLs to stake.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
@@ -600,9 +600,9 @@ class Wavelet {
     /**
      * Withdraw stake, which is immediately converted into PERLS into your balance.
      *
-     * @param {nacl.SignKeyPair} wallet
-     * @param {bigint} amount
-     * @param {Object=} opts
+     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
+     * @param {bigint} amount Amount of PERLs to withdraw from your stake.
+     * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
     async withdrawStake(wallet, amount, opts = {}) {
@@ -618,8 +618,8 @@ class Wavelet {
      * Request a withdrawal of reward; which after some number of consensus
      * rounds will then convert into PERLs into your balance.
      *
-     * @param {nacl.SignKeyPair} wallet
-     * @param {bigint} amount
+     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
+     * @param {bigint} amount Amount of PERLs to request to withdraw from your rewards.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
@@ -635,10 +635,10 @@ class Wavelet {
     /**
      * Deploy a smart contract with a specified gas limit and set of parameters.
      *
-     * @param {nacl.BoxKeyPair} wallet
-     * @param {Uint8Array} code
-     * @param {bigint} gas_limit
-     * @param {Object=} params
+     * @param {nacl.BoxKeyPair} wallet Wavelet wallet.
+     * @param {Uint8Array} code Binary of your smart contracts WebAssembly code.
+     * @param {bigint} gas_limit Gas limit to expend for creating your smart contract, and invoking its init() function.
+     * @param {Object=} params Parameters to be used for invoking your smart contracts init() function.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
@@ -660,9 +660,9 @@ class Wavelet {
      * Send a transaction on behalf of a specified wallet with a designated
      * tag and payload.
      *
-     * @param {nacl.SignKeyPair} wallet
-     * @param {number} tag
-     * @param {Uint8Array} payload
+     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
+     * @param {number} tag Tag of the transaction.
+     * @param {Uint8Array} payload Binary payload of the transaction.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
