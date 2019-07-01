@@ -1,9 +1,17 @@
 # `wavelet-client`
 
+[![Discord Chat](https://img.shields.io/discord/458332417909063682.svg)](https://discord.gg/dMYfDPM)
+[![crates.io](https://img.shields.io/npm/v/wavelet-client.svg)](https://www.npmjs.com/package/wavelet-client)
+
 A developer-friendly stateless HTTP client for interacting with a Wavelet node written in JavaScript.
 
-Note that the documentation below was auto-generated. The entire source code of this client was written
-to just fit within a single JavasScript file to make the underlying code simple and easy to understand.
+The entire source code of this client was written to just fit within a single JavaScript file to make
+the underlying code simple and easy to understand. The client has a _very_ minimal set of dependencies that are well-audited.
+
+Note that the documentation below was auto-generated; hence why certain subtleties in documentation are not
+shown here. Given that the source code is just a single file, it is recommended to read the documentation
+and how the client works straight from the source code while working with it.
+
 
 ## Usage
 
