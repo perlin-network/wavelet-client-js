@@ -15,7 +15,20 @@ export default [
             babel({
                 exclude: 'node_modules/**',
                 plugins: [
-                    "babel-plugin-transform-bigint"
+                    'babel-plugin-transform-bigint'
+                ],
+                presets: [
+                    [
+                        "@babel/preset-env",
+                        {
+                            "useBuiltIns": "usage",
+                            "modules": false,
+                            "targets": {
+                                "browsers": "> 0.25%",
+                            },
+                            "corejs": 2
+                        }
+                    ]
                 ]
             })
         ]
