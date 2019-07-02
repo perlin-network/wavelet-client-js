@@ -11,6 +11,49 @@ const TAG_CONTRACT = 2;
 const TAG_STAKE = 3;
 const TAG_BATCH = 4;
 
+const JSBI = require('jsbi');
+
+/*  
+*   JSBI.BigInt polyfill courtesy of https://gist.github.com/graup/815c9ac65c2bac8a56391f0ca23636fc
+*/ 
+const BigInt = JSBI.BigInt;
+
+DataView.prototype._setBigUint64 = DataView.prototype.setBigUint64;
+DataView.prototype.setBigUint64 = function(byteOffset, value, littleEndian) {
+    if (typeof value === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+        // the original native implementation for bigint
+        this._setBigUint64(byteOffset, value, littleEndian);
+    } else if (value.constructor === JSBI && typeof value.sign === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+        // JSBI wrapping a native bigint
+        this._setBigUint64(byteOffset, value.sign, littleEndian);
+    } else if (value.constructor === JSBI) {
+        // JSBI polyfill implementation
+        let lowWord = value[0], highWord = 0;
+        if (value.length >= 2) {
+            highWord = value[1];
+        }
+        this.setUint32(littleEndian ? 0 : 4, lowWord, littleEndian);
+        this.setUint32(littleEndian ? 4 : 0, highWord, littleEndian);
+    } else {
+        throw TypeError('Value needs to be BigInt or JSBI');
+    }
+};
+
+DataView.prototype._getBigUint64 = DataView.prototype.getBigUint64;
+DataView.prototype.getBigUint64 = function(byteOffset, littleEndian) {
+    if (typeof this._setBigUint64 !== 'undefined' && useNativeBigIntsIfAvailable) {
+        return BigInt(this._getBigUint64(byteOffset, littleEndian));
+    } else {
+        let lowWord = 0, highWord = 0;
+        lowWord = this.getUint32(littleEndian ? 0 : 4, littleEndian);
+        highWord = this.getUint32(littleEndian ? 4 : 0, littleEndian);
+        const result = new JSBI(2, false);
+        result.__setDigit(0, lowWord);
+        result.__setDigit(1, highWord);
+        return result;
+    }
+};
+
 /**
  * Converts a string to a Buffer.
  *
@@ -190,11 +233,11 @@ class Contract {
         this.contract_id = contract_id;
 
         this.contract_payload = {
-            round_idx: 0n,
+            round_idx: BigInt(0),
             round_id: "0000000000000000000000000000000000000000000000000000000000000000",
             transaction_id: "0000000000000000000000000000000000000000000000000000000000000000",
             sender_id: "0000000000000000000000000000000000000000000000000000000000000000",
-            amount: 0n,
+            amount: BigInt(0),
             params: new Uint8Array(new ArrayBuffer(0)),
         };
 
@@ -671,7 +714,7 @@ class Wavelet {
 
         const builder = new PayloadBuilder();
 
-        builder.writeUint64(0n);
+        builder.writeUint64(BigInt(0));
         builder.writeByte(tag);
         builder.writeBytes(payload);
 

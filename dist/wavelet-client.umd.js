@@ -4,20 +4,6 @@
   (global = global || self, global['wavelet-client'] = factory());
 }(this, function () { 'use strict';
 
-  function _typeof(obj) {
-    if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
-      _typeof = function (obj) {
-        return typeof obj;
-      };
-    } else {
-      _typeof = function (obj) {
-        return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
-      };
-    }
-
-    return _typeof(obj);
-  }
-
   function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) {
     try {
       var info = gen[key](arg);
@@ -125,6 +111,58 @@
   var TAG_CONTRACT = 2;
   var TAG_STAKE = 3;
   var TAG_BATCH = 4;
+
+  var JSBI = require('jsbi');
+  /*  
+  *   JSBI.BigInt polyfill courtesy of https://gist.github.com/graup/815c9ac65c2bac8a56391f0ca23636fc
+  */
+
+
+  var BigInt = JSBI.BigInt;
+  DataView.prototype._setBigUint64 = DataView.prototype.setBigUint64;
+
+  DataView.prototype.setBigUint64 = function (byteOffset, value, littleEndian) {
+    if (typeof value === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+      // the original native implementation for bigint
+      this._setBigUint64(byteOffset, value, littleEndian);
+    } else if (value.constructor === JSBI && typeof value.sign === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+      // JSBI wrapping a native bigint
+      this._setBigUint64(byteOffset, value.sign, littleEndian);
+    } else if (value.constructor === JSBI) {
+      // JSBI polyfill implementation
+      var lowWord = value[0],
+          highWord = 0;
+
+      if (value.length >= 2) {
+        highWord = value[1];
+      }
+
+      this.setUint32(littleEndian ? 0 : 4, lowWord, littleEndian);
+      this.setUint32(littleEndian ? 4 : 0, highWord, littleEndian);
+    } else {
+      throw TypeError('Value needs to be BigInt or JSBI');
+    }
+  };
+
+  DataView.prototype._getBigUint64 = DataView.prototype.getBigUint64;
+
+  DataView.prototype.getBigUint64 = function (byteOffset, littleEndian) {
+    if (typeof this._setBigUint64 !== 'undefined' && useNativeBigIntsIfAvailable) {
+      return BigInt(this._getBigUint64(byteOffset, littleEndian));
+    } else {
+      var lowWord = 0,
+          highWord = 0;
+      lowWord = this.getUint32(littleEndian ? 0 : 4, littleEndian);
+      highWord = this.getUint32(littleEndian ? 4 : 0, littleEndian);
+      var result = new JSBI(2, false);
+
+      result.__setDigit(0, lowWord);
+
+      result.__setDigit(1, highWord);
+
+      return result;
+    }
+  };
   /**
    * Converts a string to a Buffer.
    *
@@ -132,13 +170,12 @@
    * @returns {ArrayBuffer}
    */
 
+
   var str2ab = function str2ab(str) {
     var buf = new ArrayBuffer(str.length);
     var view = new Uint8Array(buf);
 
-    for (var i = 0, len = str.length; JSBI.lessThan(i, len); _x = i, i = JSBI.add(i, JSBI.BigInt(1)), _x) {
-      var _x;
-
+    for (var i = 0, len = str.length; i < len; i++) {
       view[i] = str.charCodeAt(i);
     }
 
@@ -165,7 +202,7 @@
      */
     ArrayBuffer.transfer = function (oldBuffer, newByteLength) {
       if (!(oldBuffer instanceof ArrayBuffer)) throw new TypeError('Source must be an instance of ArrayBuffer');
-      if (JSBI.lessThanOrEqual(newByteLength, oldBuffer.byteLength)) return oldBuffer.slice(0, newByteLength);
+      if (newByteLength <= oldBuffer.byteLength) return oldBuffer.slice(0, newByteLength);
       var destView = new Uint8Array(new ArrayBuffer(newByteLength));
       destView.set(new Uint8Array(oldBuffer));
       return destView.buffer;
@@ -197,8 +234,8 @@
     _createClass(PayloadBuilder, [{
       key: "resizeIfNeeded",
       value: function resizeIfNeeded(size) {
-        if (JSBI.greaterThan(JSBI.add(this.offset, size), this.buf.byteLength)) {
-          this.buf = ArrayBuffer.transfer(this.buf, JSBI.add(this.offset, size));
+        if (this.offset + size > this.buf.byteLength) {
+          this.buf = ArrayBuffer.transfer(this.buf, this.offset + size);
           this.view = new DataView(this.buf);
         }
       }
@@ -302,11 +339,9 @@
     }, {
       key: "writeBytes",
       value: function writeBytes(buf) {
-        var _x2, _y;
-
         this.resizeIfNeeded(buf.byteLength);
         new Uint8Array(this.buf, this.offset, buf.byteLength).set(buf);
-        _x2 = this, _y = "offset", _x2[_y] = JSBI.add(_x2[_y], buf.byteLength);
+        this.offset += buf.byteLength;
       }
       /**
        * Returns the raw bytes of the payload buffer.
@@ -339,11 +374,11 @@
       this.client = client;
       this.contract_id = contract_id;
       this.contract_payload = {
-        round_idx: JSBI.BigInt(0),
+        round_idx: BigInt(0),
         round_id: "0000000000000000000000000000000000000000000000000000000000000000",
         transaction_id: "0000000000000000000000000000000000000000000000000000000000000000",
         sender_id: "0000000000000000000000000000000000000000000000000000000000000000",
-        amount: JSBI.BigInt(0),
+        amount: BigInt(0),
         params: new Uint8Array(new ArrayBuffer(0))
       };
       this.decoder = new TextDecoder();
@@ -413,16 +448,14 @@
     }, {
       key: "test",
       value: function test(func_name, amount_to_send) {
-        if (JSBI.equal(this.vm, undefined)) throw new Error("init() needs to be called before calling test()");
-        func_name = JSBI.add("_contract_", func_name);
+        if (this.vm === undefined) throw new Error("init() needs to be called before calling test()");
+        func_name = "_contract_" + func_name;
 
         if (!(func_name in this.vm.instance.exports)) {
           throw new Error("could not find function in smart contract");
         }
 
-        for (var _len = arguments.length, func_params = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _x3 = _key, _key = JSBI.add(_key, JSBI.BigInt(1)), _x3) {
-          var _x3;
-
+        for (var _len = arguments.length, func_params = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
           func_params[_key - 2] = arguments[_key];
         }
 
@@ -468,14 +501,13 @@
           var _len2,
               func_params,
               _key2,
-              _x8,
               _args = arguments;
 
           return regeneratorRuntime.wrap(function _callee$(_context) {
             while (1) {
               switch (_context.prev = _context.next) {
                 case 0:
-                  for (_len2 = _args.length, func_params = new Array(_len2 > 4 ? _len2 - 4 : 0), _key2 = 4; _key2 < _len2; _x8 = _key2, _key2 = JSBI.add(_key2, JSBI.BigInt(1)), _x8) {
+                  for (_len2 = _args.length, func_params = new Array(_len2 > 4 ? _len2 - 4 : 0), _key2 = 4; _key2 < _len2; _key2++) {
                     func_params[_key2 - 4] = _args[_key2];
                   }
 
@@ -493,7 +525,7 @@
           }, _callee, this);
         }));
 
-        function call(_x4, _x5, _x6, _x7) {
+        function call(_x, _x2, _x3, _x4) {
           return _call.apply(this, arguments);
         }
 
@@ -512,9 +544,7 @@
       value: function parseFunctionParams() {
         var builder = new PayloadBuilder();
 
-        for (var _len3 = arguments.length, params = new Array(_len3), _key3 = 0; JSBI.lessThan(_key3, _len3); _x9 = _key3, _key3 = JSBI.add(_key3, JSBI.BigInt(1)), _x9) {
-          var _x9;
-
+        for (var _len3 = arguments.length, params = new Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
           params[_key3] = arguments[_key3];
         }
 
@@ -548,7 +578,7 @@
               break;
 
             case "raw":
-              if (JSBI.equal(_typeof(param.value), "string")) {
+              if (typeof param.value === "string") {
                 // Assume that it is hex-encoded.
                 param.value = new Uint8Array(param.value.match(/[\da-f]{2}/gi).map(function (h) {
                   return parseInt(h, 16);
@@ -559,7 +589,7 @@
               break;
 
             case "bytes":
-              if (JSBI.equal(_typeof(param.value), "string")) {
+              if (typeof param.value === "string") {
                 // Assume that it is hex-encoded.
                 param.value = new Uint8Array(param.value.match(/[\da-f]{2}/gi).map(function (h) {
                   return parseInt(h, 16);
@@ -615,7 +645,7 @@
             while (1) {
               switch (_context2.prev = _context2.next) {
                 case 0:
-                  if (!JSBI.equal(this.vm, undefined)) {
+                  if (!(this.vm === undefined)) {
                     _context2.next = 2;
                     break;
                   }
@@ -636,8 +666,8 @@
                   num_mem_pages = this.vm.instance.exports.memory.buffer.byteLength / 65536;
                   num_loaded_mem_pages = loaded_memory.byteLength / 65536;
 
-                  if (JSBI.lessThan(num_mem_pages, num_loaded_mem_pages)) {
-                    this.vm.instance.exports.memory.grow(JSBI.subtract(num_loaded_mem_pages, num_mem_pages));
+                  if (num_mem_pages < num_loaded_mem_pages) {
+                    this.vm.instance.exports.memory.grow(num_loaded_mem_pages - num_mem_pages);
                   }
 
                   new Uint8Array(this.vm.instance.exports.memory.buffer, 0, loaded_memory.byteLength).set(loaded_memory);
@@ -788,7 +818,7 @@
           }, _callee4, this);
         }));
 
-        function getNodeInfo(_x10) {
+        function getNodeInfo(_x5) {
           return _getNodeInfo.apply(this, arguments);
         }
 
@@ -829,7 +859,7 @@
           }, _callee5, this);
         }));
 
-        function getTransaction(_x11) {
+        function getTransaction(_x6) {
           return _getTransaction.apply(this, arguments);
         }
 
@@ -870,7 +900,7 @@
           }, _callee6, this);
         }));
 
-        function getAccount(_x12) {
+        function getAccount(_x7) {
           return _getAccount.apply(this, arguments);
         }
 
@@ -916,7 +946,7 @@
           }, _callee7, this);
         }));
 
-        function getCode(_x13) {
+        function getCode(_x8) {
           return _getCode.apply(this, arguments);
         }
 
@@ -941,10 +971,8 @@
           var opts,
               memory,
               idx,
-              _x16,
               res,
               _args8 = arguments;
-
           return regeneratorRuntime.wrap(function _callee8$(_context8) {
             while (1) {
               switch (_context8.prev = _context8.next) {
@@ -990,7 +1018,7 @@
                   _context8.t0 = _context8["catch"](6);
 
                 case 15:
-                  _x16 = idx, idx = JSBI.add(idx, JSBI.BigInt(1)), _x16;
+                  idx++;
                   _context8.next = 5;
                   break;
 
@@ -1005,7 +1033,7 @@
           }, _callee8, this, [[6, 13]]);
         }));
 
-        function getMemoryPages(_x14, _x15) {
+        function getMemoryPages(_x9, _x10) {
           return _getMemoryPages.apply(this, arguments);
         }
 
@@ -1081,7 +1109,7 @@
           }, _callee9, this);
         }));
 
-        function transfer(_x17, _x18, _x19) {
+        function transfer(_x11, _x12, _x13) {
           return _transfer.apply(this, arguments);
         }
 
@@ -1127,7 +1155,7 @@
           }, _callee10, this);
         }));
 
-        function placeStake(_x20, _x21) {
+        function placeStake(_x14, _x15) {
           return _placeStake.apply(this, arguments);
         }
 
@@ -1173,7 +1201,7 @@
           }, _callee11, this);
         }));
 
-        function withdrawStake(_x22, _x23) {
+        function withdrawStake(_x16, _x17) {
           return _withdrawStake.apply(this, arguments);
         }
 
@@ -1220,7 +1248,7 @@
           }, _callee12, this);
         }));
 
-        function withdrawReward(_x24, _x25) {
+        function withdrawReward(_x18, _x19) {
           return _withdrawReward.apply(this, arguments);
         }
 
@@ -1274,7 +1302,7 @@
           }, _callee13, this);
         }));
 
-        function deployContract(_x26, _x27, _x28) {
+        function deployContract(_x20, _x21, _x22) {
           return _deployContract.apply(this, arguments);
         }
 
@@ -1311,7 +1339,7 @@
                   opts = _args14.length > 3 && _args14[3] !== undefined ? _args14[3] : {};
                   payload_hex = Buffer.from(payload).toString("hex");
                   builder = new PayloadBuilder();
-                  builder.writeUint64(JSBI.BigInt(0));
+                  builder.writeUint64(BigInt(0));
                   builder.writeByte(tag);
                   builder.writeBytes(payload);
                   signature = Buffer.from(nacl.sign.detached(builder.getBytes(), wallet.secretKey)).toString("hex");
@@ -1336,7 +1364,7 @@
           }, _callee14, this);
         }));
 
-        function sendTransaction(_x29, _x30, _x31) {
+        function sendTransaction(_x23, _x24, _x25) {
           return _sendTransaction.apply(this, arguments);
         }
 
@@ -1355,7 +1383,7 @@
         var callbacks = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
         var opts = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
         var params = {};
-        if (opts && opts.id && JSBI.equal(_typeof(opts.id), "string") && opts.id.length === 64) params.id = opts.id;
+        if (opts && opts.id && typeof opts.id === "string" && opts.id.length === 64) params.id = opts.id;
         this.pollWebsocket('/poll/accounts', params, function (data) {
           if (callbacks && callbacks.onAccountUpdated) {
             callbacks.onAccountUpdated(data);
@@ -1376,10 +1404,10 @@
         var callbacks = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
         var opts = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
         var params = {};
-        if (opts && opts.id && JSBI.equal(_typeof(opts.id), "string") && opts.id.length === 64) params.id = opts.id;
-        if (opts && opts.tag && JSBI.equal(_typeof(opts.tag), "number")) params.tag = opts.tag;
-        if (opts && opts.sender && JSBI.equal(_typeof(opts.sender), "string") && opts.sender.length === 64) params.sender = opts.sender;
-        if (opts && opts.creator && JSBI.equal(_typeof(opts.creator), "string") && opts.creator.length === 64) params.creator = opts.creator;
+        if (opts && opts.id && typeof opts.id === "string" && opts.id.length === 64) params.id = opts.id;
+        if (opts && opts.tag && typeof opts.tag === "number") params.tag = opts.tag;
+        if (opts && opts.sender && typeof opts.sender === "string" && opts.sender.length === 64) params.sender = opts.sender;
+        if (opts && opts.creator && typeof opts.creator === "string" && opts.creator.length === 64) params.creator = opts.creator;
         this.pollWebsocket('/poll/tx', params, function (data) {
           switch (data.event) {
             case "rejected":
@@ -1440,7 +1468,7 @@
         var params = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
         var callback = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
         var info = url.parse(this.host);
-        info.protocol = JSBI.equal(info.protocol, "https:") ? "wss:" : "ws:";
+        info.protocol = info.protocol === "https:" ? "wss:" : "ws:";
         info.pathname = endpoint;
         info.query = params;
         var client = new WebsocketClient();
@@ -1588,9 +1616,7 @@
 
               var transactions = [];
 
-              for (var i = 0, offset = 1; JSBI.lessThan(i, len); _x32 = i, i = JSBI.add(i, JSBI.BigInt(1)), _x32) {
-                var _x32;
-
+              for (var i = 0, offset = 1; i < len; i++) {
                 var _tag = _view3.getUint8(offset);
 
                 offset += 1;
@@ -1601,7 +1627,7 @@
 
                 var _payload2 = Buffer.from(new Uint8Array(_buf3, offset, _payloadLen));
 
-                offset = JSBI.add(offset, _payloadLen);
+                offset += _payloadLen;
                 transactions.push(this.parseTransaction(_tag, params));
               }
 
