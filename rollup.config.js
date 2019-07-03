@@ -3,7 +3,6 @@ import commonjs from 'rollup-plugin-commonjs';
 import pkg from './package.json';
 import babel from 'rollup-plugin-babel';
 
-
 export default [
     {
         input: 'src/main.js',
@@ -13,23 +12,14 @@ export default [
             format: 'umd'
         },
         plugins: [
-            resolve(),
+            resolve({
+                browser: true,
+            }),
             commonjs(),
             babel({
                 exclude: 'node_modules/**',
-                presets: [
-                    [
-                        "@babel/preset-env",
-                        {
-                            "useBuiltIns": "usage",
-                            "targets": {
-                                "browsers": "> 0.25%",
-                            },
-                            "corejs": 2
-                        }
-                    ]
-                ]
-            })
+            }),
+
         ]
     },
     {

@@ -1,6 +1,6 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('core-js/modules/es6.regexp.to-string'), require('core-js/modules/es6.object.to-string'), require('core-js/modules/es6.regexp.match'), require('regenerator-runtime/runtime'), require('core-js/modules/es6.typed.uint8-array')) :
-  typeof define === 'function' && define.amd ? define(['core-js/modules/es6.regexp.to-string', 'core-js/modules/es6.object.to-string', 'core-js/modules/es6.regexp.match', 'regenerator-runtime/runtime', 'core-js/modules/es6.typed.uint8-array'], factory) :
+  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+  typeof define === 'function' && define.amd ? define(factory) :
   (global = global || self, global['wavelet-client'] = factory());
 }(this, function () { 'use strict';
 
@@ -104,8 +104,9 @@
 
   var url = require("url");
 
-  var WebsocketClient = require("websocket").client;
+  var WebSocket = require("websocket");
 
+  var WebSocketClient = WebSocket.w3cwebsocket;
   var TAG_NOP = 0;
   var TAG_TRANSFER = 1;
   var TAG_CONTRACT = 2;
@@ -113,63 +114,14 @@
   var TAG_BATCH = 4;
 
   var JSBI = require('jsbi');
-  /*  
-  *   JSBI.BigInt polyfill courtesy of https://gist.github.com/graup/815c9ac65c2bac8a56391f0ca23636fc
-  */
-
 
   var BigInt = JSBI.BigInt;
-  DataView.prototype._setBigUint64 = DataView.prototype.setBigUint64;
-
-  DataView.prototype.setBigUint64 = function (byteOffset, value, littleEndian) {
-    if (typeof value === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
-      // the original native implementation for bigint
-      this._setBigUint64(byteOffset, value, littleEndian);
-    } else if (value.constructor === JSBI && typeof value.sign === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
-      // JSBI wrapping a native bigint
-      this._setBigUint64(byteOffset, value.sign, littleEndian);
-    } else if (value.constructor === JSBI) {
-      // JSBI polyfill implementation
-      var lowWord = value[0],
-          highWord = 0;
-
-      if (value.length >= 2) {
-        highWord = value[1];
-      }
-
-      this.setUint32(littleEndian ? 0 : 4, lowWord, littleEndian);
-      this.setUint32(littleEndian ? 4 : 0, highWord, littleEndian);
-    } else {
-      throw TypeError('Value needs to be BigInt or JSBI');
-    }
-  };
-
-  DataView.prototype._getBigUint64 = DataView.prototype.getBigUint64;
-
-  DataView.prototype.getBigUint64 = function (byteOffset, littleEndian) {
-    if (typeof this._setBigUint64 !== 'undefined' && useNativeBigIntsIfAvailable) {
-      return BigInt(this._getBigUint64(byteOffset, littleEndian));
-    } else {
-      var lowWord = 0,
-          highWord = 0;
-      lowWord = this.getUint32(littleEndian ? 0 : 4, littleEndian);
-      highWord = this.getUint32(littleEndian ? 4 : 0, littleEndian);
-      var result = new JSBI(2, false);
-
-      result.__setDigit(0, lowWord);
-
-      result.__setDigit(1, highWord);
-
-      return result;
-    }
-  };
   /**
    * Converts a string to a Buffer.
    *
    * @param {string} str
    * @returns {ArrayBuffer}
    */
-
 
   var str2ab = function str2ab(str) {
     var buf = new ArrayBuffer(str.length);
@@ -747,10 +699,8 @@
 
                 case 6:
                   this.vm = _context3.sent;
-                  _context3.next = 9;
-                  return this.fetchAndPopulateMemoryPages();
 
-                case 9:
+                case 7:
                 case "end":
                   return _context3.stop();
               }
@@ -1079,7 +1029,7 @@
                   builder.writeBytes(Buffer.from(recipient, "hex"));
                   builder.writeUint64(amount);
 
-                  if (gas_limit > 0 || func_name.length > 0 || func_payload.length > 0) {
+                  if (JSBI.GT(gas_limit, BigInt(0)) || func_name.length > 0 || func_payload.length > 0) {
                     if (func_name.length === 0) {
                       // Default to 'on_money_received' if no func name is specified.
                       func_name = "on_money_received";
@@ -1471,14 +1421,12 @@
         info.protocol = info.protocol === "https:" ? "wss:" : "ws:";
         info.pathname = endpoint;
         info.query = params;
-        var client = new WebsocketClient();
-        client.on('connect', function (conn) {
-          conn.on('message', function (msg) {
-            if (msg.type !== "utf8") return;
-            if (callback) callback(JSON.parse(msg.utf8Data));
-          });
-        });
-        client.connect(url.format(info));
+        var client = new WebSocketClient(url.format(info));
+
+        client.onmessage = function (msg) {
+          if (typeof msg.data !== 'string') return;
+          if (callback) callback(JSON.parse(msg.data));
+        };
       }
       /**
        * Randomly generate a new Wavelet wallet.
