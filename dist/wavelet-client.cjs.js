@@ -33,6 +33,37 @@ const str2ab = str => {
     return buf;
 };
 
+DataView.prototype._setBigUint64 = DataView.prototype.setBigUint64;
+DataView.prototype.setBigUint64 = function (byteOffset, value, littleEndian) {
+    if (typeof value === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+        this._setBigUint64(byteOffset, value, littleEndian);
+    } else if (value.constructor === JSBI && typeof value.sign === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+        this._setBigUint64(byteOffset, value.sign, littleEndian);
+    } else if (value.constructor === JSBI || (value.constructor && typeof value.constructor.BigInt === 'function')) {
+        let lowWord = value[0], highWord = value.length >= 2 ? value[1] : 0;
+
+        this.setUint32(littleEndian ? byteOffset : byteOffset+4, lowWord, littleEndian);
+        this.setUint32(littleEndian ? byteOffset+4 : byteOffset, highWord, littleEndian);
+    } else {
+        throw TypeError('Value needs to be BigInt or JSBI');
+    }
+};
+
+DataView.prototype._getBigUint64 = DataView.prototype.getBigUint64;
+DataView.prototype.getBigUint64 = function (byteOffset, littleEndian) {
+    if (typeof this._setBigUint64 !== 'undefined' && useNativeBigIntsIfAvailable) {
+        return BigInt(this._getBigUint64(byteOffset, littleEndian));
+    } else {
+        let lowWord = this.getUint32(littleEndian ? byteOffset : byteOffset+4, littleEndian);
+        let highWord = this.getUint32(littleEndian ? byteOffset+4 : byteOffset, littleEndian);
+
+        const result = new JSBI(2, false);
+        result.__setDigit(0, lowWord);
+        result.__setDigit(1, highWord);
+        return result;
+    }
+};
+
 if (!global.TextDecoder) {
     global.TextDecoder = require("util").TextDecoder;
 }
@@ -451,7 +482,7 @@ class Contract {
         };
 
         this.vm = await WebAssembly.instantiate(this.code, imports);
-        // await this.fetchAndPopulateMemoryPages();
+        await this.fetchAndPopulateMemoryPages();
     }
 }
 
@@ -537,12 +568,12 @@ class Wavelet {
                 }));
 
                 if (res.status === 200) {
-                    memory.set(res.data, 65536 * idx);
+                    const page = new Uint8Array(res.data);
+                    memory.set(page, 65536 * idx);
                 }
             } catch (error) {
             }
         }
-
         return memory;
     }
 
@@ -580,8 +611,6 @@ class Wavelet {
 
             builder.writeUint32(func_payload_buf.byteLength);
             builder.writeBytes(func_payload_buf);
-
-            console.log(func_name_buf, func_payload_buf);
         }
 
         return await this.sendTransaction(wallet, TAG_TRANSFER, builder.getBytes(), opts);

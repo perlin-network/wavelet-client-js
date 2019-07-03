@@ -566,12 +566,12 @@ class Wavelet {
                 }));
 
                 if (res.status === 200) {
-                    memory.set(res.data, 65536 * idx);
+                    const page = new Uint8Array(res.data);
+                    memory.set(page, 65536 * idx);
                 }
             } catch (error) {
             }
         }
-
         return memory;
     }
 

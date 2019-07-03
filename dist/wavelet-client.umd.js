@@ -1,6 +1,6 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-  typeof define === 'function' && define.amd ? define(factory) :
+  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('core-js/modules/es6.regexp.to-string'), require('core-js/modules/es6.date.to-string'), require('core-js/modules/es6.object.to-string'), require('core-js/modules/es6.regexp.match'), require('core-js/modules/es6.array.map'), require('core-js/modules/es6.array.for-each'), require('regenerator-runtime/runtime'), require('core-js/modules/es6.typed.data-view'), require('core-js/modules/es6.typed.uint8-array')) :
+  typeof define === 'function' && define.amd ? define(['core-js/modules/es6.regexp.to-string', 'core-js/modules/es6.date.to-string', 'core-js/modules/es6.object.to-string', 'core-js/modules/es6.regexp.match', 'core-js/modules/es6.array.map', 'core-js/modules/es6.array.for-each', 'regenerator-runtime/runtime', 'core-js/modules/es6.typed.data-view', 'core-js/modules/es6.typed.uint8-array'], factory) :
   (global = global || self, global['wavelet-client'] = factory());
 }(this, function () { 'use strict';
 
@@ -132,6 +132,41 @@
     }
 
     return buf;
+  };
+
+  DataView.prototype._setBigUint64 = DataView.prototype.setBigUint64;
+
+  DataView.prototype.setBigUint64 = function (byteOffset, value, littleEndian) {
+    if (typeof value === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+      this._setBigUint64(byteOffset, value, littleEndian);
+    } else if (value.constructor === JSBI && typeof value.sign === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+      this._setBigUint64(byteOffset, value.sign, littleEndian);
+    } else if (value.constructor === JSBI || value.constructor && typeof value.constructor.BigInt === 'function') {
+      var lowWord = value[0],
+          highWord = value.length >= 2 ? value[1] : 0;
+      this.setUint32(littleEndian ? byteOffset : byteOffset + 4, lowWord, littleEndian);
+      this.setUint32(littleEndian ? byteOffset + 4 : byteOffset, highWord, littleEndian);
+    } else {
+      throw TypeError('Value needs to be BigInt or JSBI');
+    }
+  };
+
+  DataView.prototype._getBigUint64 = DataView.prototype.getBigUint64;
+
+  DataView.prototype.getBigUint64 = function (byteOffset, littleEndian) {
+    if (typeof this._setBigUint64 !== 'undefined' && useNativeBigIntsIfAvailable) {
+      return BigInt(this._getBigUint64(byteOffset, littleEndian));
+    } else {
+      var lowWord = this.getUint32(littleEndian ? byteOffset : byteOffset + 4, littleEndian);
+      var highWord = this.getUint32(littleEndian ? byteOffset + 4 : byteOffset, littleEndian);
+      var result = new JSBI(2, false);
+
+      result.__setDigit(0, lowWord);
+
+      result.__setDigit(1, highWord);
+
+      return result;
+    }
   };
 
   if (!global.TextDecoder) {
@@ -699,8 +734,10 @@
 
                 case 6:
                   this.vm = _context3.sent;
+                  _context3.next = 9;
+                  return this.fetchAndPopulateMemoryPages();
 
-                case 7:
+                case 9:
                 case "end":
                   return _context3.stop();
               }
@@ -922,6 +959,7 @@
               memory,
               idx,
               res,
+              page,
               _args8 = arguments;
           return regeneratorRuntime.wrap(function _callee8$(_context8) {
             while (1) {
@@ -957,7 +995,8 @@
                   res = _context8.sent;
 
                   if (res.status === 200) {
-                    memory.set(res.data, 65536 * idx);
+                    page = new Uint8Array(res.data);
+                    memory.set(page, 65536 * idx);
                   }
 
                   _context8.next = 15;
@@ -1042,7 +1081,6 @@
                     builder.writeBytes(func_name_buf);
                     builder.writeUint32(func_payload_buf.byteLength);
                     builder.writeBytes(func_payload_buf);
-                    console.log(func_name_buf, func_payload_buf);
                   }
 
                   _context9.next = 10;
