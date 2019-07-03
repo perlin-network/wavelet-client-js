@@ -3,13 +3,18 @@ const atob = require("atob");
 const nacl = require("tweetnacl");
 const url = require("url");
 
-const WebsocketClient = require("websocket").client;
+const WebSocket = require("websocket");
+const WebSocketClient = WebSocket.w3cwebsocket;
 
 const TAG_NOP = 0;
 const TAG_TRANSFER = 1;
 const TAG_CONTRACT = 2;
 const TAG_STAKE = 3;
 const TAG_BATCH = 4;
+
+const JSBI = require('jsbi');
+const BigInt = JSBI.BigInt;
+
 
 /**
  * Converts a string to a Buffer.
@@ -25,6 +30,37 @@ const str2ab = str => {
     }
     return buf;
 };
+
+DataView.prototype._setBigUint64 = DataView.prototype.setBigUint64;
+DataView.prototype.setBigUint64 = function (byteOffset, value, littleEndian) {
+    if (typeof value === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+        this._setBigUint64(byteOffset, value, littleEndian);
+    } else if (value.constructor === JSBI && typeof value.sign === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+        this._setBigUint64(byteOffset, value.sign, littleEndian);
+    } else if (value.constructor === JSBI || (value.constructor && typeof value.constructor.BigInt === 'function')) {
+        let lowWord = value[0], highWord = value.length >= 2 ? value[1] : 0;
+
+        this.setUint32(littleEndian ? byteOffset : byteOffset+4, lowWord, littleEndian);
+        this.setUint32(littleEndian ? byteOffset+4 : byteOffset, highWord, littleEndian);
+    } else {
+        throw TypeError('Value needs to be BigInt or JSBI');
+    }
+}
+
+DataView.prototype._getBigUint64 = DataView.prototype.getBigUint64;
+DataView.prototype.getBigUint64 = function (byteOffset, littleEndian) {
+    if (typeof this._setBigUint64 !== 'undefined' && useNativeBigIntsIfAvailable) {
+        return BigInt(this._getBigUint64(byteOffset, littleEndian));
+    } else {
+        let lowWord = this.getUint32(littleEndian ? byteOffset : byteOffset+4, littleEndian);
+        let highWord = this.getUint32(littleEndian ? byteOffset+4 : byteOffset, littleEndian);
+
+        const result = new JSBI(2, false);
+        result.__setDigit(0, lowWord);
+        result.__setDigit(1, highWord);
+        return result;
+    }
+}
 
 if (!global.TextDecoder) {
     global.TextDecoder = require("util").TextDecoder;
@@ -190,11 +226,11 @@ class Contract {
         this.contract_id = contract_id;
 
         this.contract_payload = {
-            round_idx: 0n,
+            round_idx: BigInt(0),
             round_id: "0000000000000000000000000000000000000000000000000000000000000000",
             transaction_id: "0000000000000000000000000000000000000000000000000000000000000000",
             sender_id: "0000000000000000000000000000000000000000000000000000000000000000",
-            amount: 0n,
+            amount: BigInt(0),
             params: new Uint8Array(new ArrayBuffer(0)),
         };
 
@@ -530,12 +566,12 @@ class Wavelet {
                 }));
 
                 if (res.status === 200) {
-                    memory.set(res.data, 65536 * idx);
+                    const page = new Uint8Array(res.data);
+                    memory.set(page, 65536 * idx);
                 }
             } catch (error) {
             }
         }
-
         return memory;
     }
 
@@ -558,7 +594,7 @@ class Wavelet {
         builder.writeBytes(Buffer.from(recipient, "hex"));
         builder.writeUint64(amount);
 
-        if (gas_limit > 0 || func_name.length > 0 || func_payload.length > 0) {
+        if (JSBI.GT(gas_limit, BigInt(0)) || func_name.length > 0 || func_payload.length > 0) {
             if (func_name.length === 0) { // Default to 'on_money_received' if no func name is specified.
                 func_name = "on_money_received";
             }
@@ -573,8 +609,6 @@ class Wavelet {
 
             builder.writeUint32(func_payload_buf.byteLength);
             builder.writeBytes(func_payload_buf);
-
-            console.log(func_name_buf, func_payload_buf);
         }
 
         return await this.sendTransaction(wallet, TAG_TRANSFER, builder.getBytes(), opts);
@@ -671,7 +705,7 @@ class Wavelet {
 
         const builder = new PayloadBuilder();
 
-        builder.writeUint64(0n);
+        builder.writeUint64(BigInt(0));
         builder.writeByte(tag);
         builder.writeBytes(payload);
 
@@ -765,16 +799,12 @@ class Wavelet {
         info.pathname = endpoint;
         info.query = params;
 
-        const client = new WebsocketClient();
+        const client = new WebSocketClient(url.format(info));
 
-        client.on('connect', conn => {
-            conn.on('message', msg => {
-                if (msg.type !== "utf8") return;
-                if (callback) callback(JSON.parse(msg.utf8Data));
-            })
-        });
-
-        client.connect(url.format(info));
+        client.onmessage = msg => {
+            if (typeof msg.data !== 'string') return;
+            if (callback) callback(JSON.parse(msg.data));
+        };
     }
 
     /**
