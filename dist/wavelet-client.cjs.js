@@ -671,7 +671,7 @@ class Wavelet {
     /**
      * Deploy a smart contract with a specified gas limit and set of parameters.
      *
-     * @param {nacl.BoxKeyPair} wallet Wavelet wallet.
+     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
      * @param {Uint8Array} code Binary of your smart contracts WebAssembly code.
      * @param {bigint} gas_limit Gas limit to expend for creating your smart contract, and invoking its init() function.
      * @param {Object=} params Parameters to be used for invoking your smart contracts init() function.
@@ -724,16 +724,17 @@ class Wavelet {
      *
      * @param callbacks
      * @param {{id: string|undefined}} opts
+     * @returns {Promise<WebSocketClient>} Websocket client.
      */
-    pollAccounts(callbacks = {}, opts = {}) {
+    async pollAccounts(callbacks = {}, opts = {}) {
         let params = {};
         if (opts && opts.id && typeof opts.id === "string" && opts.id.length === 64) params.id = opts.id;
 
-        this.pollWebsocket('/poll/accounts', params, data => {
+        return await this.pollWebsocket('/poll/accounts', params, data => {
             if (callbacks && callbacks.onAccountUpdated) {
                 callbacks.onAccountUpdated(data);
             }
-        });
+        })
     }
 
     /**
@@ -742,15 +743,16 @@ class Wavelet {
      *
      * @param callbacks
      * @param {{id: string|undefined, tag: number|undefined, sender: string|undefined, creator: string|undefined}} opts
+     * @returns {Promise<WebSocketClient>} Websocket client.
      */
-    pollTransactions(callbacks = {}, opts = {}) {
+    async pollTransactions(callbacks = {}, opts = {}) {
         let params = {};
         if (opts && opts.id && typeof opts.id === "string" && opts.id.length === 64) params.id = opts.id;
         if (opts && opts.tag && typeof opts.tag === "number") params.tag = opts.tag;
         if (opts && opts.sender && typeof opts.sender === "string" && opts.sender.length === 64) params.sender = opts.sender;
         if (opts && opts.creator && typeof opts.creator === "string" && opts.creator.length === 64) params.creator = opts.creator;
 
-        this.pollWebsocket('/poll/tx', params, data => {
+        return await this.pollWebsocket('/poll/tx', params, data => {
             switch (data.event) {
                 case "rejected":
                     if (callbacks && callbacks.onTransactionRejected) {
@@ -763,16 +765,17 @@ class Wavelet {
                     }
                     break;
             }
-        });
+        })
     }
 
     /**
      * Poll for finality of consensus rounds, or the pruning of consensus rounds.
      *
      * @param callbacks
+     * @returns {Promise<WebSocketClient>} Websocket client.
      */
-    pollConsensus(callbacks = {}) {
-        this.pollWebsocket('/poll/consensus', {}, data => {
+    async pollConsensus(callbacks = {}) {
+        return await this.pollWebsocket('/poll/consensus', {}, data => {
             switch (data.event) {
                 case "round_end":
                     if (callbacks && callbacks.onRoundEnded) {
@@ -794,19 +797,30 @@ class Wavelet {
      * @param {string} endpoint Websocket endpoint.
      * @param {Object=} params Query parameters to connect to the endpoint with.
      * @param {Object=} callback Callback function for each new event from the websocket.
+     * @returns {Promise<WebSocketClient>} Websocket client.
      */
     pollWebsocket(endpoint, params = {}, callback = {}) {
         let info = url.parse(this.host);
         info.protocol = info.protocol === "https:" ? "wss:" : "ws:";
-        info.pathname = endpoint;
+        info.pathname = endpoint + "la";
         info.query = params;
 
-        const client = new WebSocketClient(url.format(info));
+        return new Promise((resolve, reject) => {
+            const client = new WebSocketClient(url.format(info));
 
-        client.onmessage = msg => {
-            if (typeof msg.data !== 'string') return;
-            if (callback) callback(JSON.parse(msg.data));
-        };
+            client.onopen = () => {
+                resolve(client);
+            };
+
+            client.onerror = () => {
+                reject(new Error(`Failed to connect to ${url.format(info)}.`));
+            };
+
+            client.onmessage = msg => {
+                if (typeof msg.data !== 'string') return;
+                if (callback) callback(JSON.parse(msg.data));
+            };
+        });
     }
 
     /**

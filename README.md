@@ -62,9 +62,9 @@ const client = new Wavelet("http://127.0.0.1:9000");
         },
     ));
 
-    client.pollConsensus({onRoundEnded: console.log});
-    client.pollTransactions({onTransactionApplied: console.log}, {tag: TAG_TRANSFER, creator: "400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"});
-    client.pollAccounts({onAccountUpdated: console.log}, {id: "400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"});
+    const consensusPoll = await client.pollConsensus({onRoundEnded: console.log});
+    const transactionsPoll = await client.pollTransactions({onTransactionApplied: console.log}, {tag: TAG_TRANSFER, creator: "400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"});
+    const accountsPoll = await client.pollAccounts({onAccountUpdated: console.log}, {id: "400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"});
 
     for (let i = 0; i < 100; i++) {
         await client.transfer(wallet, 'e49e8be205a00edb45de8183a4374e362efc9a4da56dd7ba17e2dd780501e49f', BigInt(1000000));
