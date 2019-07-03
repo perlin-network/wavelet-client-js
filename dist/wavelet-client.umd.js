@@ -4745,7 +4745,7 @@
 	      var callback = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
 	      var info = url.parse(this.host);
 	      info.protocol = info.protocol === "https:" ? "wss:" : "ws:";
-	      info.pathname = endpoint + "la";
+	      info.pathname = endpoint;
 	      info.query = params;
 	      return new Promise(function (resolve, reject) {
 	        var client = new WebSocketClient(url.format(info));

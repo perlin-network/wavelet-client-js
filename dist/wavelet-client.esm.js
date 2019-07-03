@@ -800,7 +800,7 @@ class Wavelet {
     pollWebsocket(endpoint, params = {}, callback = {}) {
         let info = url.parse(this.host);
         info.protocol = info.protocol === "https:" ? "wss:" : "ws:";
-        info.pathname = endpoint + "la";
+        info.pathname = endpoint;
         info.query = params;
 
         return new Promise((resolve, reject) => {

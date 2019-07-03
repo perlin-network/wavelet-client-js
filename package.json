@@ -1,6 +1,6 @@
 {
   "name": "wavelet-client",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "main": "dist/wavelet-client.cjs.js",
   "module": "dist/wavelet-client.esm.js",
   "browser": "dist/wavelet-client.umd.js",
