@@ -13,7 +13,7 @@
   "dependencies": {
     "atob": "^2.1.2",
     "axios": "^0.19.0",
-    "jsbi": "https://github.com/graup/jsbi.git",
+    "jsbi": "^2.0.5",
     "tweetnacl": "^1.0.1",
     "url": "^0.11.0",
     "websocket": "^1.0.28"
