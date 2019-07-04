@@ -558,22 +558,28 @@ class Wavelet {
         if (num_mem_pages === 0) throw new Error("num pages cannot be zero");
 
         const memory = new Uint8Array(new ArrayBuffer(65536 * num_mem_pages));
+        const reqs = [];
 
         for (let idx = 0; idx < num_mem_pages; idx++) {
-            try {
-                const res = (await axios.get(`${this.host}/contract/${id}/page/${idx}`, {
-                    ...this.opts, ...opts,
-                    responseType: 'arraybuffer',
-                    responseEncoding: 'binary'
-                }));
+            reqs.push((async () => {
+                try {
+                    const res = await axios.get(`${this.host}/contract/${id}/page/${idx}`, {
+                        ...this.opts, ...opts,
+                        responseType: 'arraybuffer',
+                        responseEncoding: 'binary'
+                    });
 
-                if (res.status === 200) {
-                    const page = new Uint8Array(res.data);
-                    memory.set(page, 65536 * idx);
+                    if (res.status === 200) {
+                        const page = new Uint8Array(res.data);
+                        memory.set(page, 65536 * idx);
+                    }
+                } catch (error) {
                 }
-            } catch (error) {
-            }
+            })());
         }
+
+        await Promise.all(reqs);
+
         return memory;
     }
 
