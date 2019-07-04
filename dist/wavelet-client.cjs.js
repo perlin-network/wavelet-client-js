@@ -495,7 +495,13 @@ class Wavelet {
      */
     constructor(host, opts = {}) {
         this.host = host;
-        this.opts = opts;
+        this.opts = {...opts, transformRequest: [(data, headers) => {
+                headers.common = {};
+                console.log(headers);
+
+                return data
+            }]
+        };
     }
 
     /**
@@ -722,7 +728,7 @@ class Wavelet {
 
         const req = {sender, tag, payload: payload_hex, signature};
 
-        return (await axios.post(`${this.host}/tx/send`, req, {...this.opts, ...opts})).data;
+        return (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), {...this.opts, ...opts})).data;
     }
 
     /**

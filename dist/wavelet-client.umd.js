@@ -4062,7 +4062,13 @@
       _classCallCheck(this, Wavelet);
 
       this.host = host;
-      this.opts = opts;
+      this.opts = _objectSpread({}, opts, {
+        transformRequest: [function (data, headers) {
+          headers.common = {};
+          console.log(headers);
+          return data;
+        }]
+      });
     }
     /**
      * Query for information about the node you are connected to.
@@ -4647,7 +4653,7 @@
                     signature: signature
                   };
                   _context15.next = 11;
-                  return axios.post("".concat(this.host, "/tx/send"), req, _objectSpread({}, this.opts, opts));
+                  return axios.post("".concat(this.host, "/tx/send"), JSON.stringify(req), _objectSpread({}, this.opts, opts));
 
                 case 11:
                   return _context15.abrupt("return", _context15.sent.data);
