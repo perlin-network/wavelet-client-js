@@ -742,7 +742,10 @@ class Wavelet {
 
         return await this.pollWebsocket('/poll/accounts', params, data => {
             if (callbacks && callbacks.onAccountUpdated) {
-                callbacks.onAccountUpdated(data);
+                if (!Array.isArray(data)) {
+                    data = [data];
+                }
+                data.forEach(item => callbacks.onAccountUpdated(item));
             }
         })
     }
@@ -763,18 +766,23 @@ class Wavelet {
         if (opts && opts.creator && typeof opts.creator === "string" && opts.creator.length === 64) params.creator = opts.creator;
 
         return await this.pollWebsocket('/poll/tx', params, data => {
-            switch (data.event) {
-                case "rejected":
-                    if (callbacks && callbacks.onTransactionRejected) {
-                        callbacks.onTransactionRejected(data);
-                    }
-                    break;
-                case "applied":
-                    if (callbacks && callbacks.onTransactionApplied) {
-                        callbacks.onTransactionApplied(data);
-                    }
-                    break;
+            if (!Array.isArray(data)) {
+                data = [data];
             }
+            data.forEach(item => {
+                switch (item.event) {
+                    case "rejected":
+                        if (callbacks && callbacks.onTransactionRejected) {
+                            callbacks.onTransactionRejected(item);
+                        }
+                        break;
+                    case "applied":
+                        if (callbacks && callbacks.onTransactionApplied) {
+                            callbacks.onTransactionApplied(item);
+                        }
+                        break;
+                }
+            });
         })
     }
 
