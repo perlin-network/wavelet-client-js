@@ -77,20 +77,24 @@
     return obj;
   }
 
-  function _objectSpread(target) {
+  function _objectSpread2(target) {
     for (var i = 1; i < arguments.length; i++) {
-      var source = arguments[i] != null ? arguments[i] : {};
-      var ownKeys = Object.keys(source);
+      if (i % 2) {
+        var source = arguments[i] != null ? arguments[i] : {};
+        var ownKeys = Object.keys(source);
 
-      if (typeof Object.getOwnPropertySymbols === 'function') {
-        ownKeys = ownKeys.concat(Object.getOwnPropertySymbols(source).filter(function (sym) {
-          return Object.getOwnPropertyDescriptor(source, sym).enumerable;
-        }));
+        if (typeof Object.getOwnPropertySymbols === 'function') {
+          ownKeys = ownKeys.concat(Object.getOwnPropertySymbols(source).filter(function (sym) {
+            return Object.getOwnPropertyDescriptor(source, sym).enumerable;
+          }));
+        }
+
+        ownKeys.forEach(function (key) {
+          _defineProperty(target, key, source[key]);
+        });
+      } else {
+        Object.defineProperties(target, Object.getOwnPropertyDescriptors(arguments[i]));
       }
-
-      ownKeys.forEach(function (key) {
-        _defineProperty(target, key, source[key]);
-      });
     }
 
     return target;
@@ -771,7 +775,7 @@
       _classCallCheck(this, Wavelet);
 
       this.host = host;
-      this.opts = _objectSpread({}, opts, {
+      this.opts = _objectSpread2({}, opts, {
         transformRequest: [function (data, headers) {
           headers.common = {};
           console.log(headers);
@@ -798,7 +802,7 @@
               switch (_context4.prev = _context4.next) {
                 case 0:
                   _context4.next = 2;
-                  return axios.get("".concat(this.host, "/ledger"), _objectSpread({}, this.opts, opts));
+                  return axios.get("".concat(this.host, "/ledger"), _objectSpread2({}, this.opts, {}, opts));
 
                 case 2:
                   return _context4.abrupt("return", _context4.sent.data);
@@ -839,7 +843,7 @@
                 case 0:
                   opts = _args5.length > 1 && _args5[1] !== undefined ? _args5[1] : {};
                   _context5.next = 3;
-                  return axios.get("".concat(this.host, "/tx/").concat(id), _objectSpread({}, this.opts, opts));
+                  return axios.get("".concat(this.host, "/tx/").concat(id), _objectSpread2({}, this.opts, {}, opts));
 
                 case 3:
                   return _context5.abrupt("return", _context5.sent.data);
@@ -880,7 +884,7 @@
                 case 0:
                   opts = _args6.length > 1 && _args6[1] !== undefined ? _args6[1] : {};
                   _context6.next = 3;
-                  return axios.get("".concat(this.host, "/accounts/").concat(id), _objectSpread({}, this.opts, opts));
+                  return axios.get("".concat(this.host, "/accounts/").concat(id), _objectSpread2({}, this.opts, {}, opts));
 
                 case 3:
                   return _context6.abrupt("return", _context6.sent.data);
@@ -922,7 +926,7 @@
                   opts = _args7.length > 1 && _args7[1] !== undefined ? _args7[1] : {};
                   _context7.t0 = Uint8Array;
                   _context7.next = 4;
-                  return axios.get("".concat(this.host, "/contract/").concat(id), _objectSpread({}, this.opts, opts, {
+                  return axios.get("".concat(this.host, "/contract/").concat(id), _objectSpread2({}, this.opts, {}, opts, {
                     responseType: 'arraybuffer',
                     responseEncoding: 'binary'
                   }));
@@ -998,7 +1002,7 @@
                             case 0:
                               _context8.prev = 0;
                               _context8.next = 3;
-                              return axios.get("".concat(_this2.host, "/contract/").concat(id, "/page/").concat(idx), _objectSpread({}, _this2.opts, opts, {
+                              return axios.get("".concat(_this2.host, "/contract/").concat(id, "/page/").concat(idx), _objectSpread2({}, _this2.opts, {}, opts, {
                                 responseType: 'arraybuffer',
                                 responseEncoding: 'binary'
                               }));
@@ -1362,7 +1366,7 @@
                     signature: signature
                   };
                   _context15.next = 11;
-                  return axios.post("".concat(this.host, "/tx/send"), JSON.stringify(req), _objectSpread({}, this.opts, opts));
+                  return axios.post("".concat(this.host, "/tx/send"), JSON.stringify(req), _objectSpread2({}, this.opts, {}, opts));
 
                 case 11:
                   return _context15.abrupt("return", _context15.sent.data);
