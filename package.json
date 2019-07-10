@@ -1,6 +1,6 @@
 {
   "name": "wavelet-client",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "main": "dist/wavelet-client.cjs.js",
   "module": "dist/wavelet-client.esm.js",
   "browser": "dist/wavelet-client.umd.js",
@@ -8,7 +8,8 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
-    "test": "rollup -c && node test/test.js"
+    "test": "rollup -c && node test/test.js",
+    "prepublish": "npm run build"
   },
   "dependencies": {
     "atob": "^2.1.2",
