@@ -15,8 +15,7 @@ const TAG_STAKE = 3;
 const TAG_BATCH = 4;
 
 const JSBI = require('jsbi');
-const BigInt = JSBI.BigInt;
-
+const BigInt = window.useNativeBigIntsIfAvailable ? BigInt: JSBI.BigInt;
 
 /**
  * Converts a string to a Buffer.
@@ -51,8 +50,8 @@ DataView.prototype.setBigUint64 = function (byteOffset, value, littleEndian) {
 
 DataView.prototype._getBigUint64 = DataView.prototype.getBigUint64;
 DataView.prototype.getBigUint64 = function (byteOffset, littleEndian) {
-    if (typeof this._setBigUint64 !== 'undefined' && useNativeBigIntsIfAvailable) {
-        return BigInt(this._getBigUint64(byteOffset, littleEndian));
+    if (typeof this._setBigUint64 !== 'undefined' && window.useNativeBigIntsIfAvailable) {
+        return this._getBigUint64(byteOffset, littleEndian);
     } else {
         let lowWord = this.getUint32(littleEndian ? byteOffset : byteOffset+4, littleEndian);
         let highWord = this.getUint32(littleEndian ? byteOffset+4 : byteOffset, littleEndian);
