@@ -2649,7 +2649,7 @@
 	DataView.prototype._getBigUint64 = DataView.prototype.getBigUint64;
 
 	DataView.prototype.getBigUint64 = function (byteOffset, littleEndian) {
-	  if (typeof this._setBigUint64 !== 'undefined' && window.useNativeBigIntsIfAvailable) {
+	  if (typeof this._getBigUint64 !== 'undefined' && window.useNativeBigIntsIfAvailable) {
 	    return this._getBigUint64(byteOffset, littleEndian);
 	  } else {
 	    var lowWord = this.getUint32(littleEndian ? byteOffset : byteOffset + 4, littleEndian);
