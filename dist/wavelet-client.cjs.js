@@ -497,7 +497,6 @@ class Wavelet {
         this.host = host;
         this.opts = {...opts, transformRequest: [(data, headers) => {
                 headers.common = {};
-                console.log(headers);
 
                 return data
             }]
@@ -875,7 +874,7 @@ class Wavelet {
                 return {}
             }
             case TAG_TRANSFER: {
-                const buf = str2ab(atob(params));
+                const buf = str2ab(atob(payload));
 
                 if (buf.byteLength < 32 + 8) {
                     throw new Error("transfer: payload does not contain recipient id or amount");
@@ -901,7 +900,7 @@ class Wavelet {
                 return tx;
             }
             case TAG_CONTRACT: {
-                const buf = str2ab(atob(params));
+                const buf = str2ab(atob(payload));
 
                 if (buf.byteLength < 12) {
                     throw new Error("contract: payload is malformed");
@@ -921,7 +920,7 @@ class Wavelet {
                 return tx;
             }
             case TAG_STAKE: {
-                const buf = str2ab(atob(params));
+                const buf = str2ab(atob(payload));
 
                 if (buf.byteLength !== 9) {
                     throw new Error("stake: payload must be exactly 9 bytes");
@@ -953,7 +952,7 @@ class Wavelet {
                 return tx;
             }
             case TAG_BATCH: {
-                const buf = str2ab(atob(params));
+                const buf = str2ab(atob(payload));
                 const view = new DataView(buf);
 
                 const len = view.getUint8(0);
@@ -970,7 +969,7 @@ class Wavelet {
                     const payload = Buffer.from(new Uint8Array(buf, offset, payloadLen));
                     offset += payloadLen;
 
-                    transactions.push(this.parseTransaction(tag, params));
+                    transactions.push(this.parseTransaction(tag, payload));
                 }
 
                 return transactions;

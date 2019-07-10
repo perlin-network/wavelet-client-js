@@ -1391,23 +1391,33 @@
 	  return obj;
 	}
 
+	function ownKeys(object, enumerableOnly) {
+	  var keys = Object.keys(object);
+
+	  if (Object.getOwnPropertySymbols) {
+	    keys.push.apply(keys, Object.getOwnPropertySymbols(object));
+	  }
+
+	  if (enumerableOnly) keys = keys.filter(function (sym) {
+	    return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+	  });
+	  return keys;
+	}
+
 	function _objectSpread2(target) {
 	  for (var i = 1; i < arguments.length; i++) {
+	    var source = arguments[i] != null ? arguments[i] : {};
+
 	    if (i % 2) {
-	      var source = arguments[i] != null ? arguments[i] : {};
-	      var ownKeys = Object.keys(source);
-
-	      if (typeof Object.getOwnPropertySymbols === 'function') {
-	        ownKeys = ownKeys.concat(Object.getOwnPropertySymbols(source).filter(function (sym) {
-	          return Object.getOwnPropertyDescriptor(source, sym).enumerable;
-	        }));
-	      }
-
-	      ownKeys.forEach(function (key) {
+	      ownKeys(source, true).forEach(function (key) {
 	        _defineProperty(target, key, source[key]);
 	      });
+	    } else if (Object.getOwnPropertyDescriptors) {
+	      Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
 	    } else {
-	      Object.defineProperties(target, Object.getOwnPropertyDescriptors(arguments[i]));
+	      ownKeys(source).forEach(function (key) {
+	        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+	      });
 	    }
 	  }
 
@@ -3269,7 +3279,6 @@
 	    this.opts = _objectSpread2({}, opts, {
 	      transformRequest: [function (data, headers) {
 	        headers.common = {};
-	        console.log(headers);
 	        return data;
 	      }]
 	    });
@@ -4137,7 +4146,7 @@
 
 	        case TAG_TRANSFER:
 	          {
-	            var buf = str2ab(atob(params));
+	            var buf = str2ab(atob(payload));
 
 	            if (buf.byteLength < 32 + 8) {
 	              throw new Error("transfer: payload does not contain recipient id or amount");
@@ -4164,7 +4173,7 @@
 
 	        case TAG_CONTRACT:
 	          {
-	            var _buf = str2ab(atob(params));
+	            var _buf = str2ab(atob(payload));
 
 	            if (_buf.byteLength < 12) {
 	              throw new Error("contract: payload is malformed");
@@ -4184,7 +4193,7 @@
 
 	        case TAG_STAKE:
 	          {
-	            var _buf2 = str2ab(atob(params));
+	            var _buf2 = str2ab(atob(payload));
 
 	            if (_buf2.byteLength !== 9) {
 	              throw new Error("stake: payload must be exactly 9 bytes");
@@ -4223,7 +4232,7 @@
 
 	        case TAG_BATCH:
 	          {
-	            var _buf3 = str2ab(atob(params));
+	            var _buf3 = str2ab(atob(payload));
 
 	            var _view3 = new DataView(_buf3);
 
@@ -4243,7 +4252,7 @@
 	              var _payload2 = Buffer.from(new Uint8Array(_buf3, offset, _payloadLen));
 
 	              offset += _payloadLen;
-	              transactions.push(this.parseTransaction(_tag, params));
+	              transactions.push(this.parseTransaction(_tag, _payload2));
 	            }
 
 	            return transactions;
