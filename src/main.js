@@ -290,7 +290,7 @@ class Contract {
      * @param {...{type: ('int16'|'int32'|'int64'|'uint16'|'uint32'|'uint64'|'byte'|'raw'|'bytes'|'string'), value: number|string|ArrayBuffer|Uint8Array}} func_params Variadic list of arguments.
      * @returns {{result: string|undefined, logs: Array<string>}}
      */
-    test(func_name, amount_to_send, ...func_params) {
+    test(wallet, func_name, amount_to_send, ...func_params) {
         if (this.vm === undefined) throw new Error("init() needs to be called before calling test()");
 
         func_name = "_contract_" + func_name;
@@ -301,6 +301,7 @@ class Contract {
 
         this.contract_payload.params = this.parseFunctionParams(...func_params);
         this.contract_payload.amount = amount_to_send;
+        this.contract_payload.sender_id = Buffer.from(wallet.publicKey).toString("hex");
         this.rebuildContractPayload();
 
         // Clone the current browser VM's memory.
