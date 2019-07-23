@@ -48,7 +48,7 @@ const client = new Wavelet("http://127.0.0.1:9000");
     const contract = new Contract(client, '52bb52e0440ce0aa7a7d2018f5bac21d6abde64f5b9498615ce2bef332bd487a');
     await contract.init();
 
-    console.log(contract.test('balance', BigInt(0),
+    console.log(contract.test(wallet, 'balance', BigInt(0),
         {
             type: 'raw',
             value: '400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405'
