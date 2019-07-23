@@ -21,7 +21,7 @@
     "utils",
     "lib",
     "wavelet",
-    "perlin",
+    "perlin"
   ],
   "dependencies": {
     "atob": "^2.1.2",
