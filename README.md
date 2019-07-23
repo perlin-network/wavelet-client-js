@@ -55,7 +55,7 @@ const client = new Wavelet("http://127.0.0.1:9000");
         },
     ));
 
-    console.log(await contract.call(wallet, 'balance', BigInt(0), JSBI.subtract(BigInt(account.balance), BigInt(1000000)),
+    console.log(await contract.call(wallet, 'balance', BigInt(0), BigInt(0), JSBI.subtract(BigInt(account.balance), BigInt(1000000)),
         {
             type: 'raw',
             value: '400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405'

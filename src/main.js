@@ -13,7 +13,7 @@ const TAG_STAKE = 3;
 const TAG_BATCH = 4;
 
 const JSBI = require('jsbi');
-const BigInt = window.useNativeBigIntsIfAvailable ? BigInt: JSBI.BigInt;
+const BigInt = window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
 
 /**
  * Converts a string to a Buffer.
@@ -39,8 +39,8 @@ DataView.prototype.setBigUint64 = function (byteOffset, value, littleEndian) {
     } else if (value.constructor === JSBI || (value.constructor && typeof value.constructor.BigInt === 'function')) {
         let lowWord = value[0], highWord = value.length >= 2 ? value[1] : 0;
 
-        this.setUint32(littleEndian ? byteOffset : byteOffset+4, lowWord, littleEndian);
-        this.setUint32(littleEndian ? byteOffset+4 : byteOffset, highWord, littleEndian);
+        this.setUint32(littleEndian ? byteOffset : byteOffset + 4, lowWord, littleEndian);
+        this.setUint32(littleEndian ? byteOffset + 4 : byteOffset, highWord, littleEndian);
     } else {
         throw TypeError('Value needs to be BigInt or JSBI');
     }
@@ -51,8 +51,8 @@ DataView.prototype.getBigUint64 = function (byteOffset, littleEndian) {
     if (typeof this._getBigUint64 !== 'undefined' && window.useNativeBigIntsIfAvailable) {
         return this._getBigUint64(byteOffset, littleEndian);
     } else {
-        let lowWord = this.getUint32(littleEndian ? byteOffset : byteOffset+4, littleEndian);
-        let highWord = this.getUint32(littleEndian ? byteOffset+4 : byteOffset, littleEndian);
+        let lowWord = this.getUint32(littleEndian ? byteOffset : byteOffset + 4, littleEndian);
+        let highWord = this.getUint32(littleEndian ? byteOffset + 4 : byteOffset, littleEndian);
 
         const result = new JSBI(2, false);
         result.__setDigit(0, lowWord);
@@ -333,11 +333,12 @@ class Contract {
      * @param amount_to_send Amount of PERLs to send simultaneously to the smart contract while
      * calling a function.
      * @param gas_limit Gas limit to expend for invoking a smart contract function.
+     * @param gas_deposit Amount of gas fees to deposit into the smart contract.
      * @param {...{type: ('int16'|'int32'|'int64'|'uint16'|'uint32'|'uint64'|'byte'|'raw'|'bytes'|'string'), value: number|string|ArrayBuffer|Uint8Array}} func_params Variadic list of arguments.
      * @returns {Promise<Object>} Response from the Wavelet node.
      */
-    async call(wallet, func_name, amount_to_send, gas_limit, ...func_params) {
-        return await this.client.transfer(wallet, this.contract_id, amount_to_send, gas_limit, func_name, this.parseFunctionParams(...func_params));
+    async call(wallet, func_name, amount_to_send, gas_limit, gas_deposit, ...func_params) {
+        return await this.client.transfer(wallet, this.contract_id, amount_to_send, gas_limit, gas_deposit, func_name, this.parseFunctionParams(...func_params));
     }
 
     /**
@@ -493,7 +494,8 @@ class Wavelet {
      */
     constructor(host, opts = {}) {
         this.host = host;
-        this.opts = {...opts, transformRequest: [(data, headers) => {
+        this.opts = {
+            ...opts, transformRequest: [(data, headers) => {
                 headers.common = {};
 
                 return data
@@ -594,12 +596,13 @@ class Wavelet {
      * @param {string} recipient Hex-encoded recipient/smart contract address.
      * @param {bigint} amount Amount of PERLs to send.
      * @param {bigint=} gas_limit Gas limit to expend for invoking a smart contract function (optional).
+     * @param {bigint=} gas_deposit Amount of gas to deposit into a smart contract (optional).
      * @param {string=} func_name Name of the function to invoke on a smart contract (optional).
      * @param {Uint8Array=} func_payload Binary-serialized parameters to be used to invoke a smart contract function (optional).
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<Object>}
      */
-    async transfer(wallet, recipient, amount, gas_limit = 0, func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
+    async transfer(wallet, recipient, amount, gas_limit = 0, gas_deposit = 0, func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
         const builder = new PayloadBuilder();
 
         builder.writeBytes(Buffer.from(recipient, "hex"));
@@ -614,6 +617,7 @@ class Wavelet {
             const func_payload_buf = new Uint8Array(func_payload);
 
             builder.writeUint64(gas_limit);
+            builder.writeUint64(gas_deposit);
 
             builder.writeUint32(func_name_buf.byteLength);
             builder.writeBytes(func_name_buf);
@@ -683,17 +687,19 @@ class Wavelet {
      * @param {nacl.SignKeyPair} wallet Wavelet wallet.
      * @param {Uint8Array} code Binary of your smart contracts WebAssembly code.
      * @param {bigint} gas_limit Gas limit to expend for creating your smart contract, and invoking its init() function.
+     * @param {bigint=} gas_deposit Amount of gas fees to deposit into a smart contract.
      * @param {Object=} params Parameters to be used for invoking your smart contracts init() function.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
-    async deployContract(wallet, code, gas_limit, params = [], opts = {}) {
+    async deployContract(wallet, code, gas_limit, gas_deposit = 0, params = [], opts = {}) {
         code = new Uint8Array(code);
         params = new Uint8Array(params);
 
         const builder = new PayloadBuilder();
 
         builder.writeUint64(gas_limit);
+        builder.writeUint64(gas_deposit);
         builder.writeUint32(params.byteLength);
         builder.writeBytes(params);
         builder.writeBytes(code);
@@ -887,12 +893,13 @@ class Wavelet {
 
                 if (buf.byteLength > 32 + 8) {
                     tx.gasLimit = view.getBigUint64(32 + 8, true);
+                    tx.gasDeposit = view.getBigUint64(32 + 8 + 8, true);
 
-                    const funcNameLen = view.getUint32(32 + 8 + 8, true);
-                    tx.funcName = Buffer.from(new Uint8Array(buf, 32 + 8 + 8 + 4, funcNameLen)).toString("utf8");
+                    const funcNameLen = view.getUint32(32 + 8 + 8 + 8, true);
+                    tx.funcName = Buffer.from(new Uint8Array(buf, 32 + 8 + 8 + 8 + 4, funcNameLen)).toString("utf8");
 
-                    const funcPayloadLen = view.getUint32(32 + 8 + 8 + 4 + funcNameLen, true);
-                    tx.payload = Buffer.from(new Uint8Array(buf, 32 + 8 + 8 + 4 + funcNameLen + 4, funcPayloadLen));
+                    const funcPayloadLen = view.getUint32(32 + 8 + 8 + 8 + 4 + funcNameLen, true);
+                    tx.payload = Buffer.from(new Uint8Array(buf, 32 + 8 + 8 + 8 + 4 + funcNameLen + 4, funcPayloadLen));
                 }
 
                 return tx;
@@ -909,11 +916,12 @@ class Wavelet {
                 let tx = {};
 
                 tx.gasLimit = view.getBigUint64(0, true);
+                tx.gasDeposit = view.getBigUint64(8, true);
 
-                const payloadLen = view.getUint32(8, true);
+                const payloadLen = view.getUint32(8 + 8, true);
 
-                tx.payload = Buffer.from(new Uint8Array(buf, 8 + 4, payloadLen));
-                tx.code = Buffer.from(new Uint8Array(buf, 8 + 4 + payloadLen));
+                tx.payload = Buffer.from(new Uint8Array(buf, 8 + 8 + 4, payloadLen));
+                tx.code = Buffer.from(new Uint8Array(buf, 8 + 8 + 4 + payloadLen));
 
                 return tx;
             }
