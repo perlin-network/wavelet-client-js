@@ -11,6 +11,18 @@
     "test": "rollup -c && node test/test.js",
     "prepublish": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/perlin-network/wavelet-client-js.git"
+  },
+  "keywords": [
+    "smart-contracts",
+    "wasm",
+    "utils",
+    "lib",
+    "wavelet",
+    "perlin",
+  ],
   "dependencies": {
     "atob": "^2.1.2",
     "axios": "^0.19.0",
