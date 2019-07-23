@@ -13,6 +13,11 @@ const TAG_STAKE = 3;
 const TAG_BATCH = 4;
 
 const JSBI = require('jsbi');
+
+if (typeof window === 'undefined') {
+    var window = window || {};
+}
+
 const BigInt = window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
 
 /**
