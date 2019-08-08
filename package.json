@@ -1,12 +1,13 @@
 {
-  "name": "wavelet-client",
-  "version": "1.1.0",
+  "name": "@claudiucelfilip/wavelet-client",
+  "version": "1.1.2",
   "main": "dist/wavelet-client.cjs.js",
   "module": "dist/wavelet-client.esm.js",
   "browser": "dist/wavelet-client.umd.js",
   "license": "MIT",
   "scripts": {
-    "build": "rollup -c",
+    "build": "rollup -c && npm run build:umd",
+    "build:umd": "webpack",
     "dev": "rollup -c -w",
     "test": "rollup -c && node test/test.js",
     "prepublish": "npm run build"
@@ -24,10 +25,8 @@
     "perlin"
   ],
   "dependencies": {
-    "@babel/runtime": "^7.5.5",
     "atob": "^2.1.2",
     "axios": "^0.19.0",
-    "core-js": "2",
     "jsbi": "^2.0.5",
     "tweetnacl": "^1.0.1",
     "url": "^0.11.0",
@@ -37,11 +36,8 @@
     "dist"
   ],
   "devDependencies": {
-    "@babel/core": "^7.4.5",
-    "@babel/preset-env": "^7.4.5",
     "rollup": "^1.16.3",
-    "rollup-plugin-babel": "^4.1.0-1",
-    "rollup-plugin-commonjs": "^10.0.1",
-    "rollup-plugin-node-resolve": "^5.2.0"
+    "webpack": "^4.39.1",
+    "webpack-cli": "^3.3.6"
   }
 }
