@@ -16,6 +16,7 @@ const JSBI = require('jsbi');
 
 if (typeof window === 'undefined') {
     var window = window || {};
+    var global = global || window;
 }
 
 const BigInt = window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
