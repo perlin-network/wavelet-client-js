@@ -602,7 +602,6 @@ class Wavelet {
 
                     if (res.status === 200) {
                         if (res.headers['page-not-modified'] == '1' && cache_entry.content) {
-                            console.log("Page is not modified.");
                             memory.set(cache_entry.content, 65536 * idx);
                         } else {
                             const page = new Uint8Array(res.data);
