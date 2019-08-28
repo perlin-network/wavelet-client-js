@@ -317,7 +317,7 @@ class Contract {
         this.vm.instance.exports[func_name]();
 
         // Collect simulated execution results.
-        const res = {result: this.result, logs: this.logs};
+        const res = { result: this.result, logs: this.logs };
 
         // Reset the browser VM.
         new Uint8Array(this.vm.instance.exports.memory.buffer, 0, copy.byteLength).set(copy);
@@ -491,6 +491,13 @@ class Contract {
     }
 }
 
+class PageCacheEntry {
+    constructor(hash, content) {
+        this.hash = hash;
+        this.content = content;
+    }
+}
+
 class Wavelet {
     /**
      * A client for interacting with the HTTP API of a Wavelet node.
@@ -507,6 +514,7 @@ class Wavelet {
                 return data
             }]
         };
+        this.contract_page_cache = {}; // string -> PageCacheEntry
     }
 
     /**
@@ -516,7 +524,7 @@ class Wavelet {
      * @returns {Promise<Object>}
      */
     async getNodeInfo(opts) {
-        return (await axios.get(`${this.host}/ledger`, {...this.opts, ...opts})).data;
+        return (await axios.get(`${this.host}/ledger`, { ...this.opts, ...opts })).data;
     }
 
     /**
@@ -527,7 +535,7 @@ class Wavelet {
      * @returns {Promise<Object>}
      */
     async getTransaction(id, opts = {}) {
-        return (await axios.get(`${this.host}/tx/${id}`, {...this.opts, ...opts})).data;
+        return (await axios.get(`${this.host}/tx/${id}`, { ...this.opts, ...opts })).data;
     }
 
     /**
@@ -538,7 +546,7 @@ class Wavelet {
      * @returns {Promise<{public_key: string, nonce: bigint, balance: bigint, stake: bigint, reward: bigint, is_contract: boolean, num_mem_pages: bigint}>}
      */
     async getAccount(id, opts = {}) {
-        return (await axios.get(`${this.host}/accounts/${id}`, {...this.opts, ...opts})).data;
+        return (await axios.get(`${this.host}/accounts/${id}`, { ...this.opts, ...opts })).data;
     }
 
     /**
@@ -571,18 +579,38 @@ class Wavelet {
         const memory = new Uint8Array(new ArrayBuffer(65536 * num_mem_pages));
         const reqs = [];
 
+        let pin_key;
+
+        {
+            const res = await axios.get(`${this.host}/ledger/pin`, {
+                ...this.opts
+            });
+            pin_key = res.data;
+        }
+
         for (let idx = 0; idx < num_mem_pages; idx++) {
             reqs.push((async () => {
                 try {
-                    const res = await axios.get(`${this.host}/contract/${id}/page/${idx}`, {
+                    const page_hash_key = `${id}_${idx}`;
+                    const cache_entry = (this.contract_page_cache[page_hash_key] || new PageCacheEntry("x", null));
+
+                    const res = await axios.get(`${this.host}/contract/${id}/page/${idx}/${pin_key}/${cache_entry.hash}`, {
                         ...this.opts, ...opts,
                         responseType: 'arraybuffer',
                         responseEncoding: 'binary'
                     });
 
                     if (res.status === 200) {
-                        const page = new Uint8Array(res.data);
-                        memory.set(page, 65536 * idx);
+                        if (res.headers['page-not-modified'] == '1' && cache_entry.content) {
+                            console.log("Page is not modified.");
+                            memory.set(cache_entry.content, 65536 * idx);
+                        } else {
+                            const page = new Uint8Array(res.data);
+                            memory.set(page, 65536 * idx);
+
+                            const page_hash = res.headers["page-hash"];
+                            this.contract_page_cache[page_hash_key] = new PageCacheEntry(page_hash, page);
+                        }
                     }
                 } catch (error) {
                 }
@@ -735,9 +763,9 @@ class Wavelet {
         const signature = Buffer.from(nacl.sign.detached(builder.getBytes(), wallet.secretKey)).toString("hex");
         const sender = Buffer.from(wallet.publicKey).toString("hex");
 
-        const req = {sender, tag, payload: payload_hex, signature};
+        const req = { sender, tag, payload: payload_hex, signature };
 
-        return (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), {...this.opts, ...opts})).data;
+        return (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), { ...this.opts, ...opts })).data;
     }
 
     /**
@@ -895,7 +923,7 @@ class Wavelet {
                 const recipient = Buffer.from(new Uint8Array(buf, 0, 32)).toString('hex');
                 const amount = view.getBigUint64(32, true);
 
-                let tx = {recipient, amount};
+                let tx = { recipient, amount };
 
                 if (buf.byteLength > 32 + 8) {
                     tx.gasLimit = view.getBigUint64(32 + 8, true);
@@ -947,7 +975,7 @@ class Wavelet {
 
                 const amount = view.getBigUint64(1, true);
 
-                let tx = {amount};
+                let tx = { amount };
 
                 switch (opcode) {
                     case 0:
@@ -992,4 +1020,4 @@ class Wavelet {
     }
 }
 
-export default {Wavelet, Contract, TAG_NOP, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH};
+export default { Wavelet, Contract, TAG_NOP, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH };
