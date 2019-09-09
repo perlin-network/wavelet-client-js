@@ -1,6 +1,6 @@
 {
-  "name": "@claudiucelfilip/wavelet-client",
-  "version": "1.1.2",
+  "name": "wavelet-client",
+  "version": "1.1.0",
   "main": "dist/wavelet-client.cjs.js",
   "module": "dist/wavelet-client.esm.js",
   "browser": "dist/wavelet-client.umd.js",
