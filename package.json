@@ -25,6 +25,7 @@
     "perlin"
   ],
   "dependencies": {
+    "@babel/runtime": "^7.5.5",
     "atob": "^2.1.2",
     "axios": "^0.19.0",
     "jsbi": "^2.0.5",
