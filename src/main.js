@@ -220,15 +220,47 @@ class PayloadBuilder {
 }
 
 class Contract {
+
+    static setAmount(value) {
+        return config => {
+            config.amount = BigInt(value);
+        };
+    }
+
+    static setRecipient(value) {
+        return config => {
+            config.recipient = value;
+        }
+    }
+
+    static setGasLimit(value) {
+        return config => {
+            config.gas_limit = BigInt(value);
+        };
+    }
+
+    static setGasDeposit(value) {
+        return config => {
+            config.gas_deposit = BigInt(value);
+        };
+    }
+    static setParams(value) {
+        return config => {
+            config.params = value;
+        };
+    }
     /**
      * A Wavelet smart contract execution simulator.
      *
      * @param {Wavelet} client Client instance which is connected to a single Wavelet node.
      * @param {string} contract_id Hex-encoded ID of a smart contract.
      */
-    constructor(client, contract_id) {
+    constructor(client, ...opts) {
         this.client = client;
-        this.contract_id = contract_id;
+        opts.forEach(opt => {
+            opt(this);
+        });
+        // this.contract_id = contract_id;
 
         this.contract_payload = {
             round_idx: BigInt(0),
@@ -296,7 +328,18 @@ class Contract {
      * @param {...{type: ('int16'|'int32'|'int64'|'uint16'|'uint32'|'uint64'|'byte'|'raw'|'bytes'|'string'), value: number|string|ArrayBuffer|Uint8Array}} func_params Variadic list of arguments.
      * @returns {{result: string|undefined, logs: Array<string>}}
      */
-    test(wallet, func_name, amount_to_send, ...func_params) {
+    test(wallet, func_name, ...opts) {
+
+        const config = {
+            gas_deposit: JSBI.BigInt(0),
+            gas_limit: JSBI.BigInt(0),
+            amount: JSBI.BigInt(0),
+            params: []
+        };
+        opts.forEach(opt => {
+            opt(config);
+        });
+
         if (this.vm === undefined) throw new Error("init() needs to be called before calling test()");
 
         func_name = "_contract_" + func_name;
@@ -305,8 +348,8 @@ class Contract {
             throw new Error("could not find function in smart contract");
         }
 
-        this.contract_payload.params = this.parseFunctionParams(...func_params);
-        this.contract_payload.amount = amount_to_send;
+        this.contract_payload.params = this.parseFunctionParams(...config.params);
+        this.contract_payload.amount = config.amount;
         this.contract_payload.sender_id = Buffer.from(wallet.publicKey).toString("hex");
         this.rebuildContractPayload();
 
@@ -317,7 +360,7 @@ class Contract {
         this.vm.instance.exports[func_name]();
 
         // Collect simulated execution results.
-        const res = {result: this.result, logs: this.logs};
+        const res = { result: this.result, logs: this.logs };
 
         // Reset the browser VM.
         new Uint8Array(this.vm.instance.exports.memory.buffer, 0, copy.byteLength).set(copy);
@@ -343,8 +386,21 @@ class Contract {
      * @param {...{type: ('int16'|'int32'|'int64'|'uint16'|'uint32'|'uint64'|'byte'|'raw'|'bytes'|'string'), value: number|string|ArrayBuffer|Uint8Array}} func_params Variadic list of arguments.
      * @returns {Promise<Object>} Response from the Wavelet node.
      */
-    async call(wallet, func_name, amount_to_send, gas_limit, gas_deposit, ...func_params) {
-        return await this.client.transfer(wallet, this.contract_id, amount_to_send, gas_limit, gas_deposit, func_name, this.parseFunctionParams(...func_params));
+    async call(wallet, func_name, ...opts) {
+        // amount_to_send, gas_limit, gas_deposit, ...func_params
+        const config = {
+            func_name,
+            recipient: this.contract_id,
+            wallet,
+            gas_deposit: JSBI.BigInt(0),
+            gas_limit: JSBI.BigInt(0),
+            amount: JSBI.BigInt(0),
+            params: []
+        };
+        opts.forEach(opt => opt(config));
+        config.params = this.parseFunctionParams(...config.params);
+
+        return await this.client._send(config);
     }
 
     /**
@@ -498,10 +554,16 @@ class Wavelet {
      * @param {string} host Address to the HTTP API of a Wavelet node.
      * @param {Object=} opts Default options to be passed for making any HTTP request calls using this client instance (optional).
      */
-    constructor(host, opts = {}) {
+    constructor(host, ...opts) {
         this.host = host;
+
+        opts.forEach(opt => {
+            opt(this);
+        });
+
         this.opts = {
-            ...opts, transformRequest: [(data, headers) => {
+            ...this.opts,
+            transformRequest: [(data, headers) => {
                 headers.common = {};
 
                 return data
@@ -516,7 +578,7 @@ class Wavelet {
      * @returns {Promise<Object>}
      */
     async getNodeInfo(opts) {
-        return (await axios.get(`${this.host}/ledger`, {...this.opts, ...opts})).data;
+        return (await axios.get(`${this.host}/ledger`, { ...this.opts, ...opts })).data;
     }
 
     /**
@@ -527,7 +589,7 @@ class Wavelet {
      * @returns {Promise<Object>}
      */
     async getTransaction(id, opts = {}) {
-        return (await axios.get(`${this.host}/tx/${id}`, {...this.opts, ...opts})).data;
+        return (await axios.get(`${this.host}/tx/${id}`, { ...this.opts, ...opts })).data;
     }
 
     /**
@@ -538,7 +600,7 @@ class Wavelet {
      * @returns {Promise<{public_key: string, nonce: bigint, balance: bigint, stake: bigint, reward: bigint, is_contract: boolean, num_mem_pages: bigint}>}
      */
     async getAccount(id, opts = {}) {
-        return (await axios.get(`${this.host}/accounts/${id}`, {...this.opts, ...opts})).data;
+        return (await axios.get(`${this.host}/accounts/${id}`, { ...this.opts, ...opts })).data;
     }
 
     /**
@@ -608,8 +670,31 @@ class Wavelet {
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<Object>}
      */
-    async transfer(wallet, recipient, amount, gas_limit = 0, gas_deposit = 0, func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
+    async transfer(wallet, recipient, ...opts) {
+
+        const config = {
+            recipient,
+            wallet
+        };
+        opts.forEach(opt => opt(config));
+        return this._send(config);
+    }
+
+    async _send(config) {
         const builder = new PayloadBuilder();
+
+        const {
+            recipient,
+            amount,
+
+            gas_deposit = 0,
+            gas_limit = 0,
+            func_payload = new Uint8Array(new ArrayBuffer(0)),
+            wallet,
+            ...opts
+        } = config;
+
+        let { func_name = "" } = config;
 
         builder.writeBytes(Buffer.from(recipient, "hex"));
         builder.writeUint64(amount);
@@ -643,13 +728,16 @@ class Wavelet {
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
-    async placeStake(wallet, amount, opts = {}) {
+    async placeStake(wallet, amount, ...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
+
         const builder = new PayloadBuilder();
 
         builder.writeByte(1);
         builder.writeUint64(amount);
 
-        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), opts);
+        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), config);
     }
 
     /**
@@ -660,13 +748,16 @@ class Wavelet {
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
-    async withdrawStake(wallet, amount, opts = {}) {
+    async withdrawStake(wallet, amount, ...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
+
         const builder = new PayloadBuilder();
 
         builder.writeByte(0);
         builder.writeUint64(amount);
 
-        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), opts);
+        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), config);
     }
 
     /**
@@ -678,13 +769,16 @@ class Wavelet {
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<*>}
      */
-    async withdrawReward(wallet, amount, opts = {}) {
+    async withdrawReward(wallet, amount, ...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
+
         const builder = new PayloadBuilder();
 
         builder.writeByte(2);
         builder.writeUint64(amount);
 
-        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), opts);
+        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), config);
     }
 
     /**
@@ -735,9 +829,9 @@ class Wavelet {
         const signature = Buffer.from(nacl.sign.detached(builder.getBytes(), wallet.secretKey)).toString("hex");
         const sender = Buffer.from(wallet.publicKey).toString("hex");
 
-        const req = {sender, tag, payload: payload_hex, signature};
+        const req = { sender, tag, payload: payload_hex, signature };
 
-        return (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), {...this.opts, ...opts})).data;
+        return (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), { ...this.opts, ...opts })).data;
     }
 
     /**
@@ -747,9 +841,12 @@ class Wavelet {
      * @param {{id: string|undefined}} opts
      * @returns {Promise<WebSocketClient>} Websocket client.
      */
-    async pollAccounts(callbacks = {}, opts = {}) {
+    async pollAccounts(callbacks = {}, ...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
+
         let params = {};
-        if (opts && opts.id && typeof opts.id === "string" && opts.id.length === 64) params.id = opts.id;
+        if (config && config.id && typeof config.id === "string" && config.id.length === 64) params.id = config.id;
 
         return await this.pollWebsocket('/poll/accounts', params, data => {
             if (callbacks && callbacks.onAccountUpdated) {
@@ -769,12 +866,15 @@ class Wavelet {
      * @param {{id: string|undefined, tag: number|undefined, sender: string|undefined, creator: string|undefined}} opts
      * @returns {Promise<WebSocketClient>} Websocket client.
      */
-    async pollTransactions(callbacks = {}, opts = {}) {
+    async pollTransactions(callbacks = {}, ...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
+
         let params = {};
-        if (opts && opts.id && typeof opts.id === "string" && opts.id.length === 64) params.id = opts.id;
-        if (opts && opts.tag && typeof opts.tag === "number") params.tag = opts.tag;
-        if (opts && opts.sender && typeof opts.sender === "string" && opts.sender.length === 64) params.sender = opts.sender;
-        if (opts && opts.creator && typeof opts.creator === "string" && opts.creator.length === 64) params.creator = opts.creator;
+        if (config && config.id && typeof config.id === "string" && config.id.length === 64) params.id = config.id;
+        if (config && config.tag && typeof config.tag === "number") params.tag = config.tag;
+        if (config && config.sender && typeof config.sender === "string" && config.sender.length === 64) params.sender = config.sender;
+        if (config && config.creator && typeof config.creator === "string" && config.creator.length === 64) params.creator = config.creator;
 
         return await this.pollWebsocket('/poll/tx', params, data => {
             if (!Array.isArray(data)) {
@@ -895,7 +995,7 @@ class Wavelet {
                 const recipient = Buffer.from(new Uint8Array(buf, 0, 32)).toString('hex');
                 const amount = view.getBigUint64(32, true);
 
-                let tx = {recipient, amount};
+                let tx = { recipient, amount };
 
                 if (buf.byteLength > 32 + 8) {
                     tx.gasLimit = view.getBigUint64(32 + 8, true);
@@ -947,7 +1047,7 @@ class Wavelet {
 
                 const amount = view.getBigUint64(1, true);
 
-                let tx = {amount};
+                let tx = { amount };
 
                 switch (opcode) {
                     case 0:
@@ -992,4 +1092,4 @@ class Wavelet {
     }
 }
 
-export default {Wavelet, Contract, TAG_NOP, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH};
+export default { Wavelet, Contract, TAG_NOP, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH };
