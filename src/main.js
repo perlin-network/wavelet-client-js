@@ -1005,15 +1005,17 @@ class Wavelet {
    * @param {nacl.SignKeyPair} wallet Wavelet wallet.
    ** tag - Tag of the transaction.
    ** payload - Binary payload of the transaction.
+   ** dontSend - Flag to true to prevent request and get built payload
    ** http - Options to be passed on for making the specified HTTP request call (optional).
-   * @param {tag: number, payload: Uint8Array, http: Object=} opts
+   * @param {tag: number, payload: Uint8Array, dontSend: boolean, http: Object=} opts
    * @returns {Promise<*>}
    */
     async sendTransaction(wallet, ...opts) {
         const builder = new PayloadBuilder();
         const config = {
             http: {},
-            sender: Buffer.from(wallet.publicKey).toString("hex"),
+            dontSend: false,
+            sender: Buffer.from(wallet.publicKey).toString("hex")
         };
 
         opts.forEach(opt => opt(config));
@@ -1022,6 +1024,9 @@ class Wavelet {
         builder.writeByte(config.tag);
         builder.writeBytes(config.payload);
 
+        if (dontSend) {
+            return builder;
+        }
         const req = {
             sender: config.sender,
             tag: config.tag,
