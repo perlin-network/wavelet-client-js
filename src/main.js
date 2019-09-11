@@ -700,7 +700,7 @@ class Wavelet {
         this.host = host;
 
         opts.forEach(opt => {
-            opt(this.http);
+            opt(this);
         });
 
         this.http = {
@@ -787,13 +787,14 @@ class Wavelet {
      *
      * @param {string} id Hex-encoded ID of the smart contract.
      * @param {number} num_mem_pages Number of memory pages the smart contract has.
-     * @param {Object=} opts  Options to be passed on for making the specified HTTP request call (optional).
+     ** http - Options to be passed on for making the specified HTTP request call (optional).
+     * @param {{http: Object}} opts
      * @returns {Promise<Uint8Array>} The memory of the given smart contract, which may be used to
      *  initialize a WebAssembly VM with (either on browser/desktop).
      */
     async getMemoryPages(id, num_mem_pages, ...opts) {
         const config = {
-            http: {}  
+            http: {}
         };
         opts.forEach(opt => opt(config));
 
@@ -837,14 +838,15 @@ class Wavelet {
      ** func_name - Name of the function to invoke on a smart contract (optional).
      ** func_payload - Binary-serialized parameters to be used to invoke a smart contract function (optional).
      ** http - Options to be passed on for making the specified HTTP request call (optional).
-     * @param {{func_payload: Uint8Array=, gas_deposit: bigint=, gas_limit: bigint=, amount: bigint=, http: Object=}}} opts Options to be passed on for making the specified HTTP request call (optional).
+     * @param {{func_payload: Uint8Array=, gas_deposit: bigint=, gas_limit: bigint=, amount: bigint=, http: Object=}} opts
      * @returns {Promise<Object>}
      */
     async transfer(wallet, recipient, ...opts) {
 
         const config = {
             recipient,
-            wallet
+            wallet,
+            http: {}
         };
         opts.forEach(opt => opt(config));
         return this._send(config);
@@ -885,7 +887,7 @@ class Wavelet {
             builder.writeBytes(func_payload_buf);
         }
 
-        return await this.sendTransaction(wallet, TAG_TRANSFER, builder.getBytes(), config.http);
+        return await this.sendTransaction(wallet, Wavelet.Tag(TAG_TRANSFER), Wavelet.Payload(builder.getBytes()), Wavelet.Http(config.http));
     }
 
     /**
@@ -908,7 +910,7 @@ class Wavelet {
         builder.writeByte(1);
         builder.writeUint64(config.amount);
 
-        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), config.http);
+        return await this.sendTransaction(wallet, Wavelet.Tag(TAG_STAKE), Wavelet.Payload(builder.getBytes()), Wavelet.Http(config.http));
     }
 
     /**
@@ -931,7 +933,7 @@ class Wavelet {
         builder.writeByte(0);
         builder.writeUint64(config.amount);
 
-        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), config.http);
+        return await this.sendTransaction(wallet, Wavelet.Tag(TAG_STAKE), Wavelet.Payload(builder.getBytes()), Wavelet.Http(config.http));
     }
 
     /**
@@ -955,7 +957,7 @@ class Wavelet {
         builder.writeByte(2);
         builder.writeUint64(config.amount);
 
-        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), config.http);
+        return await this.sendTransaction(wallet, Wavelet.Tag(TAG_STAKE), Wavelet.Payload(builder.getBytes()), Wavelet.Http(config.http));
     }
 
     /**
@@ -994,35 +996,44 @@ class Wavelet {
         builder.writeBytes(config.params);
         builder.writeBytes(code);
 
-        return await this.sendTransaction(wallet, TAG_CONTRACT, builder.getBytes(), config.http);
+        return await this.sendTransaction(wallet, Wavelet.Tag(TAG_CONTRACT), Wavelet.Payload(builder.getBytes()), Wavelet.Http(config.http));
     }
 
     /**
-     * Send a transaction on behalf of a specified wallet with a designated
-     * tag and payload.
-     *
-     * @param {nacl.SignKeyPair} wallet Wavelet wallet.
-     * @param {number} tag Tag of the transaction.
-     * @param {Uint8Array} payload Binary payload of the transaction.
-     * @param {Object=} http Options to be passed on for making the specified HTTP request call (optional).
-     * @returns {Promise<*>}
-     */
-    async sendTransaction(wallet, tag, payload, http = {}) {
-        const payload_hex = Buffer.from(payload).toString("hex");
-
+   * Send a transaction on behalf of a specified wallet with a designated
+   * tag and payload.
+   *
+   * @param {nacl.SignKeyPair} wallet Wavelet wallet.
+   ** tag - Tag of the transaction.
+   ** payload - Binary payload of the transaction.
+   ** http - Options to be passed on for making the specified HTTP request call (optional).
+   * @param {tag: number, payload: Uint8Array, http: Object=} opts
+   * @returns {Promise<*>}
+   */
+    async sendTransaction(wallet, ...opts) {
         const builder = new PayloadBuilder();
+        const config = {
+            http: {},
+            sender: Buffer.from(wallet.publicKey).toString("hex"),
+        };
+
+        opts.forEach(opt => opt(config));
 
         builder.writeUint64(BigInt(0));
-        builder.writeByte(tag);
-        builder.writeBytes(payload);
+        builder.writeByte(config.tag);
+        builder.writeBytes(config.payload);
 
-        const signature = Buffer.from(nacl.sign.detached(builder.getBytes(), wallet.secretKey)).toString("hex");
-        const sender = Buffer.from(wallet.publicKey).toString("hex");
+        const req = {
+            sender: config.sender,
+            tag: config.tag,
+            payload: Buffer.from(config.payload).toString("hex"),
+            signature: Buffer.from(nacl.sign.detached(builder.getBytes(), wallet.secretKey)).toString("hex")
+        };
 
-        const req = { sender, tag, payload: payload_hex, signature };
-
-        return (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), { ...this.http, ...http })).data;
+        return (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), { ...this.http, ...config.http })).data;
     }
+
+
 
     /**
      * Poll for updates to accounts.
@@ -1120,7 +1131,7 @@ class Wavelet {
      * @param {Object=} callback Callback function for each new event from the websocket.
      * @returns {Promise<WebSocketClient>} Websocket client.
      */
-    pollWebsocket(endpoint, params = {}, callback = {}) {
+    pollWebsocket(endpoint, params = {}, callback) {
         let info = url.parse(this.host);
         info.protocol = info.protocol === "https:" ? "wss:" : "ws:";
         info.pathname = endpoint;
@@ -1165,9 +1176,9 @@ class Wavelet {
 
     /**
      * Parse a transactions payload content into JSON.
-     *
-     * @param {(TAG_NOP|TAG_TRANSFER|TAG_CONTRACT|TAG_STAKE|TAG_BATCH)} tag Tag of a transaction.
-     * @param {string} payload Binary-serialized payload of a transaction.
+     ** tag - Tag of the transaction.
+     ** payload - Binary-serialized payload of a transaction.
+     * @param {{payload: string, tag: (TAG_NOP|TAG_TRANSFER|TAG_CONTRACT|TAG_STAKE|TAG_BATCH)}} otps
      * @returns {{amount: bigint, recipient: string}|{}|Array|{amount: bigint}} Decoded payload of a transaction.
      */
     static parseTransaction(...opts) {
