@@ -1300,4 +1300,4 @@ class Wavelet {
     }
 }
 
-export default { Wavelet, Contract, TAG_NOP, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, SetOption };
+export default { PayloadBuilder, Wavelet, Contract, TAG_NOP, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, SetOption };
