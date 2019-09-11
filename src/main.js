@@ -218,35 +218,115 @@ class PayloadBuilder {
         return new Uint8Array(this.buf.slice(0, this.offset));
     }
 }
+ /**
+ * Sets value for custom option key
+ *
+ * @param {bigint} round_idx Consensus round index.
+ */
+const SetOption = (key, value) => {
+    return config => {
+        config[key] = value;
+    };
+};
 
 class Contract {
 
-    static setAmount(value) {
+    static Amount(value) {
         return config => {
             config.amount = BigInt(value);
         };
     }
 
-    static setRecipient(value) {
+    static Recipient(value) {
         return config => {
             config.recipient = value;
         }
     }
 
-    static setGasLimit(value) {
+    static ContractId(value) {
+        return config => {
+            config.contract_id = value;
+        }
+    }
+
+    static GasLimit(value) {
         return config => {
             config.gas_limit = BigInt(value);
         };
     }
 
-    static setGasDeposit(value) {
+    static GasDeposit(value) {
         return config => {
             config.gas_deposit = BigInt(value);
         };
     }
-    static setParams(value) {
+
+    static Params(value) {
         return config => {
             config.params = value;
+        };
+    }
+
+    static Int16(value) {
+        return {
+            type: 'int16',
+            value
+        }
+    }
+    static Int32(value) {
+        return {
+            type: 'int32',
+            value
+        }
+    }
+    static Int64(value) {
+        return {
+            type: 'int64',
+            value: BigInt(value)
+        }
+    }
+    static Uint16(value) {
+        return {
+            type: 'uint16',
+            value
+        }
+    }
+    static Uint32(value) {
+        return {
+            type: 'uint32',
+            value
+        }
+    }
+    static Uint64(value) {
+        return {
+            type: 'uint64',
+            value
+        }
+    }
+    static Byte(value) {
+        return {
+            type: 'byte',
+            value
+        }
+    }
+
+    static bytes(value) {
+        return {
+            type: 'bytes',
+            value
+        }
+    }
+    static string(value) {
+        return {
+            type: 'string',
+            value
+        }
+    }
+
+    static Raw(value) {
+        return {
+            type: 'raw',
+            value
         };
     }
     /**
@@ -334,7 +414,8 @@ class Contract {
             gas_deposit: JSBI.BigInt(0),
             gas_limit: JSBI.BigInt(0),
             amount: JSBI.BigInt(0),
-            params: []
+            params: [],
+            sender_id: Buffer.from(wallet.publicKey).toString("hex")
         };
         opts.forEach(opt => {
             opt(config);
@@ -350,7 +431,7 @@ class Contract {
 
         this.contract_payload.params = this.parseFunctionParams(...config.params);
         this.contract_payload.amount = config.amount;
-        this.contract_payload.sender_id = Buffer.from(wallet.publicKey).toString("hex");
+        this.contract_payload.sender_id = config.sender_id;
         this.rebuildContractPayload();
 
         // Clone the current browser VM's memory.
@@ -554,6 +635,59 @@ class Wavelet {
      * @param {string} host Address to the HTTP API of a Wavelet node.
      * @param {Object=} opts Default options to be passed for making any HTTP request calls using this client instance (optional).
      */
+
+    static Creator(value) {
+        return config => {
+            config.creator = value;
+        };
+    }
+    static Sender(value) {
+        return config => {
+            config.sender = value;
+        };
+    }
+    static Tag(value) {
+        return config => {
+            config.tag = value;
+        };
+    }
+    static Id(value) {
+        return config => {
+            config.id = value;
+        };
+    }
+    static TransactionApplied(fn) {
+        return config => {
+            config.onTransactionApplied = fn;
+        };
+    }
+    static TransactionRejected(fn) {
+        return config => {
+            config.onTransactionRejected = fn;
+        };
+    }
+    static RoundEnded(fn) {
+        return config => {
+            config.onRoundEnded = fn;
+        };
+    }
+    static RoundPruned(fn) {
+        return config => {
+            config.onRoundPruned = fn;
+        };
+    }
+
+    static Payload(value) {
+        return config => {
+            config.payload = value;
+        };
+    }
+    static AccountUpdated(fn) {
+        return config => {
+            config.onAccountUpdated = fn;
+        };
+    }
+
     constructor(host, ...opts) {
         this.host = host;
 
@@ -588,8 +722,11 @@ class Wavelet {
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<Object>}
      */
-    async getTransaction(id, opts = {}) {
-        return (await axios.get(`${this.host}/tx/${id}`, { ...this.opts, ...opts })).data;
+    async getTransaction(id, ...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
+
+        return (await axios.get(`${this.host}/tx/${id}`, { ...this.opts, ...config })).data;
     }
 
     /**
@@ -599,8 +736,11 @@ class Wavelet {
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<{public_key: string, nonce: bigint, balance: bigint, stake: bigint, reward: bigint, is_contract: boolean, num_mem_pages: bigint}>}
      */
-    async getAccount(id, opts = {}) {
-        return (await axios.get(`${this.host}/accounts/${id}`, { ...this.opts, ...opts })).data;
+    async getAccount(id, ...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
+
+        return (await axios.get(`${this.host}/accounts/${id}`, { ...this.opts, ...config })).data;
     }
 
     /**
@@ -610,7 +750,10 @@ class Wavelet {
      * @param {Object=} opts  Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<Uint8Array>}
      */
-    async getCode(id, opts = {}) {
+    async getCode(id, ...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
+
         return new Uint8Array((await axios.get(`${this.host}/contract/${id}`, {
             ...this.opts, ...opts,
             responseType: 'arraybuffer',
@@ -627,7 +770,10 @@ class Wavelet {
      * @returns {Promise<Uint8Array>} The memory of the given smart contract, which may be used to
      *  initialize a WebAssembly VM with (either on browser/desktop).
      */
-    async getMemoryPages(id, num_mem_pages, opts = {}) {
+    async getMemoryPages(id, num_mem_pages, ...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
+
         if (num_mem_pages === 0) throw new Error("num pages cannot be zero");
 
         const memory = new Uint8Array(new ArrayBuffer(65536 * num_mem_pages));
@@ -637,7 +783,7 @@ class Wavelet {
             reqs.push((async () => {
                 try {
                     const res = await axios.get(`${this.host}/contract/${id}/page/${idx}`, {
-                        ...this.opts, ...opts,
+                        ...this.opts, ...config,
                         responseType: 'arraybuffer',
                         responseEncoding: 'binary'
                     });
@@ -786,25 +932,36 @@ class Wavelet {
      *
      * @param {nacl.SignKeyPair} wallet Wavelet wallet.
      * @param {Uint8Array} code Binary of your smart contracts WebAssembly code.
-     * @param {bigint} gas_limit Gas limit to expend for creating your smart contract, and invoking its init() function.
-     * @param {bigint=} gas_deposit Amount of gas fees to deposit into a smart contract.
-     * @param {Object=} params Parameters to be used for invoking your smart contracts init() function.
-     * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
+     ** gas_limit - Gas limit to expend for creating your smart contract, and invoking its init() function.
+     ** gas_deposit - Amount of gas fees to deposit into a smart contract.
+     ** params - Parameters to be used for invoking your smart contracts init() function.
+     * @param {{gas_limit: bigint, gas_deposit: bigint=, params:Object= }} opts
      * @returns {Promise<*>}
      */
-    async deployContract(wallet, code, gas_limit, gas_deposit = 0, params = [], opts = {}) {
+    async deployContract(wallet, code, ...opts) {
+
+        const config = {
+            func_name,
+            recipient: this.contract_id,
+            wallet,
+            gas_deposit: JSBI.BigInt(0),
+            gas_limit: JSBI.BigInt(0),
+            params: []
+        };
+        opts.forEach(opt => opt(config));
+
+        config.params = this.parseFunctionParams(...config.params);
         code = new Uint8Array(code);
-        params = new Uint8Array(params);
 
         const builder = new PayloadBuilder();
 
-        builder.writeUint64(gas_limit);
-        builder.writeUint64(gas_deposit);
-        builder.writeUint32(params.byteLength);
-        builder.writeBytes(params);
+        builder.writeUint64(config.gas_limit);
+        builder.writeUint64(config.gas_deposit);
+        builder.writeUint32(config.params.byteLength);
+        builder.writeBytes(config.params);
         builder.writeBytes(code);
 
-        return await this.sendTransaction(wallet, TAG_CONTRACT, builder.getBytes(), opts);
+        return await this.sendTransaction(wallet, TAG_CONTRACT, builder.getBytes(), config);
     }
 
     /**
@@ -837,23 +994,23 @@ class Wavelet {
     /**
      * Poll for updates to accounts.
      *
-     * @param callbacks
-     * @param {{id: string|undefined}} opts
+     * @param {{id: string|undefined, onAccountUpdated: Function}} opts
      * @returns {Promise<WebSocketClient>} Websocket client.
      */
-    async pollAccounts(callbacks = {}, ...opts) {
-        const config = {};
+    async pollAccounts(...opts) {
+        const config = {
+            params: {}
+        };
         opts.forEach(opt => opt(config));
 
-        let params = {};
-        if (config && config.id && typeof config.id === "string" && config.id.length === 64) params.id = config.id;
+        if (config && config.id && typeof config.id === "string" && config.id.length === 64) config.params.id = config.id;
 
-        return await this.pollWebsocket('/poll/accounts', params, data => {
-            if (callbacks && callbacks.onAccountUpdated) {
+        return await this.pollWebsocket('/poll/accounts', config.params, data => {
+            if (config.onAccountUpdated) {
                 if (!Array.isArray(data)) {
                     data = [data];
                 }
-                data.forEach(item => callbacks.onAccountUpdated(item));
+                data.forEach(item => config.onAccountUpdated(item));
             }
         })
     }
@@ -862,34 +1019,34 @@ class Wavelet {
      * Poll for updates to either all transactions in the ledger, or transactions made by a certain sender, or
      * transactions made by a certain creator, or transactions with a specific tag, or just a single transaction.
      *
-     * @param callbacks
-     * @param {{id: string|undefined, tag: number|undefined, sender: string|undefined, creator: string|undefined}} opts
+     * @param {{id: string|undefined, onTransactionApplied:, onTransactionRejected: Function, tag: number|undefined, sender: string|undefined, creator: string|undefined}} opts
      * @returns {Promise<WebSocketClient>} Websocket client.
      */
-    async pollTransactions(callbacks = {}, ...opts) {
-        const config = {};
+    async pollTransactions(...opts) {
+        const config = {
+            params: {}
+        };
         opts.forEach(opt => opt(config));
 
-        let params = {};
-        if (config && config.id && typeof config.id === "string" && config.id.length === 64) params.id = config.id;
-        if (config && config.tag && typeof config.tag === "number") params.tag = config.tag;
-        if (config && config.sender && typeof config.sender === "string" && config.sender.length === 64) params.sender = config.sender;
-        if (config && config.creator && typeof config.creator === "string" && config.creator.length === 64) params.creator = config.creator;
+        if (config && config.id && typeof config.id === "string" && config.id.length === 64) config.params.id = config.id;
+        if (config && config.tag && typeof config.tag === "number") config.params.tag = config.tag;
+        if (config && config.sender && typeof config.sender === "string" && config.sender.length === 64) config.params.sender = config.sender;
+        if (config && config.creator && typeof config.creator === "string" && config.creator.length === 64) config.params.creator = config.creator;
 
-        return await this.pollWebsocket('/poll/tx', params, data => {
+        return await this.pollWebsocket('/poll/tx', config.params, data => {
             if (!Array.isArray(data)) {
                 data = [data];
             }
             data.forEach(item => {
                 switch (item.event) {
                     case "rejected":
-                        if (callbacks && callbacks.onTransactionRejected) {
-                            callbacks.onTransactionRejected(item);
+                        if (config.onTransactionRejected) {
+                            config.onTransactionRejected(item);
                         }
                         break;
                     case "applied":
-                        if (callbacks && callbacks.onTransactionApplied) {
-                            callbacks.onTransactionApplied(item);
+                        if (config.onTransactionApplied) {
+                            config.onTransactionApplied(item);
                         }
                         break;
                 }
@@ -900,20 +1057,22 @@ class Wavelet {
     /**
      * Poll for finality of consensus rounds, or the pruning of consensus rounds.
      *
-     * @param callbacks
+     * @param {{onRoundEnded: Function, onRoundPruned: Function}} opts
      * @returns {Promise<WebSocketClient>} Websocket client.
      */
-    async pollConsensus(callbacks = {}) {
+    async pollConsensus(...opts) {
+        const config = {};
+        opts.forEach(opt => opt(config));
         return await this.pollWebsocket('/poll/consensus', {}, data => {
             switch (data.event) {
                 case "round_end":
-                    if (callbacks && callbacks.onRoundEnded) {
-                        callbacks.onRoundEnded(data);
+                    if (config.onRoundEnded) {
+                        config.onRoundEnded(data);
                     }
                     break;
                 case "prune":
-                    if (callbacks && callbacks.onRoundPruned) {
-                        callbacks.onRoundPruned(data);
+                    if (config.onRoundPruned) {
+                        config.onRoundPruned(data);
                     }
                     break;
             }
@@ -978,7 +1137,13 @@ class Wavelet {
      * @param {string} payload Binary-serialized payload of a transaction.
      * @returns {{amount: bigint, recipient: string}|{}|Array|{amount: bigint}} Decoded payload of a transaction.
      */
-    static parseTransaction(tag, payload) {
+    static parseTransaction(...opts) {
+        const config = {
+            payload: ""
+        };
+        opts.forEach(opt => opt(config));
+        const { tag, payload } = config;
+
         switch (tag) {
             case TAG_NOP: {
                 return {}
@@ -1092,4 +1257,4 @@ class Wavelet {
     }
 }
 
-export default { Wavelet, Contract, TAG_NOP, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH };
+export default { Wavelet, Contract, TAG_NOP, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, SetOption };
