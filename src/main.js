@@ -975,7 +975,6 @@ class Wavelet {
     async deployContract(wallet, code, ...opts) {
 
         const config = {
-            func_name,
             recipient: this.contract_id,
             wallet,
             gas_deposit: JSBI.BigInt(0),
@@ -985,7 +984,7 @@ class Wavelet {
         };
         opts.forEach(opt => opt(config));
 
-        config.params = this.parseFunctionParams(...config.params);
+        config.params = new Uint8Array(config.params);
         code = new Uint8Array(code);
 
         const builder = new PayloadBuilder();
