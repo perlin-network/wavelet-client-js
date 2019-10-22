@@ -68,7 +68,7 @@ DataView.prototype.getBigUint64 = function (byteOffset, littleEndian) {
 }
 
 if (!global.TextDecoder) {
-    global.TextDecoder = require("util").TextDecoder;
+    global.TextDecoder = require("text-encoding").TextDecoder;
 }
 
 if (!ArrayBuffer.transfer) { // Polyfill just in-case.
@@ -239,7 +239,7 @@ class Contract {
             params: new Uint8Array(new ArrayBuffer(0)),
         };
 
-        this.decoder = new TextDecoder();
+        this.decoder = new global.TextDecoder();
 
         this.result = null;
         this.logs = [];
