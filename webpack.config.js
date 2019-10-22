@@ -2,7 +2,6 @@ const path = require("path");
 
 module.exports = {
   entry: "./src/main.js",
-  devtool: "inline-cheap-module-source-map",
   output: {
     path: path.resolve(__dirname, "dist"),
     filename: "wavelet-client.umd.js",
