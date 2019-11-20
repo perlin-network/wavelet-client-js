@@ -6,7 +6,6 @@ const url = require("url");
 const WebSocket = require("websocket");
 const WebSocketClient = WebSocket.w3cwebsocket;
 
-const TAG_NOP = 0;
 const TAG_TRANSFER = 1;
 const TAG_CONTRACT = 2;
 const TAG_STAKE = 3;
@@ -595,6 +594,18 @@ class Wavelet {
     }
 
     /**
+     * Get nonce and block value for an account.
+     * This is required for sending transaction
+     *
+     * @param {nacl.SignKeyPair} wallet
+     * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
+    */
+    async nonce(wallet, opts = {}) {
+        const account = Buffer.from(wallet.publicKey).toString("hex");
+        const result = await axios.get(`${this.host}/nonce/${account}`, {...this.opts, ...opts});
+        return result.data;
+    }
+    /**
      * Transfer some amount of PERLs to a recipient, or invoke a function on
      * a smart contract should the recipient specified be a smart contract.
      *
@@ -732,10 +743,20 @@ class Wavelet {
         builder.writeByte(tag);
         builder.writeBytes(payload);
 
-        const signature = Buffer.from(nacl.sign.detached(builder.getBytes(), wallet.secretKey)).toString("hex");
+        const { nonce, block } = await this.nonce(wallet);
+
+        const message = Buffer.from([nonce, block, tag,  ...builder.getBytes()]);
+        const signature = Buffer.from(nacl.sign.detached(message, wallet.secretKey)).toString("hex");
         const sender = Buffer.from(wallet.publicKey).toString("hex");
 
-        const req = {sender, tag, payload: payload_hex, signature};
+        const req = {
+            sender, 
+            nonce,
+            block,
+            tag,
+            payload: payload_hex, 
+            signature
+        };
 
         return (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), {...this.opts, ...opts})).data;
     }
@@ -775,14 +796,14 @@ class Wavelet {
         if (opts && opts.tag && typeof opts.tag === "number") params.tag = opts.tag;
         if (opts && opts.sender && typeof opts.sender === "string" && opts.sender.length === 64) params.sender = opts.sender;
         if (opts && opts.creator && typeof opts.creator === "string" && opts.creator.length === 64) params.creator = opts.creator;
-
         return await this.pollWebsocket('/poll/tx', params, data => {
             if (!Array.isArray(data)) {
                 data = [data];
             }
             data.forEach(item => {
                 switch (item.event) {
-                    case "rejected":
+                    case "failed":
+                    case "error":
                         if (callbacks && callbacks.onTransactionRejected) {
                             callbacks.onTransactionRejected(item);
                         }
@@ -806,7 +827,7 @@ class Wavelet {
     async pollConsensus(callbacks = {}) {
         return await this.pollWebsocket('/poll/consensus', {}, data => {
             switch (data.event) {
-                case "round_end":
+                case "finalized":
                     if (callbacks && callbacks.onRoundEnded) {
                         callbacks.onRoundEnded(data);
                     }
@@ -874,15 +895,12 @@ class Wavelet {
     /**
      * Parse a transactions payload content into JSON.
      *
-     * @param {(TAG_NOP|TAG_TRANSFER|TAG_CONTRACT|TAG_STAKE|TAG_BATCH)} tag Tag of a transaction.
+     * @param {(TAG_TRANSFER|TAG_CONTRACT|TAG_STAKE|TAG_BATCH)} tag Tag of a transaction.
      * @param {string} payload Binary-serialized payload of a transaction.
      * @returns {{amount: bigint, recipient: string}|{}|Array|{amount: bigint}} Decoded payload of a transaction.
      */
     static parseTransaction(tag, payload) {
         switch (tag) {
-            case TAG_NOP: {
-                return {}
-            }
             case TAG_TRANSFER: {
                 const buf = str2ab(atob(payload));
 
@@ -992,4 +1010,4 @@ class Wavelet {
     }
 }
 
-export default {Wavelet, Contract, TAG_NOP, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH};
+export default {Wavelet, Contract, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, Buffer, JSBI};
