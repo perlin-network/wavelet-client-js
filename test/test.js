@@ -6,6 +6,7 @@ const BigInt = JSBI.BigInt;
 const client = new Wavelet("http://127.0.0.1:9000");
 
 (async () => {
+  console.log(Wavelet.generateNewWallet());
   console.log(await client.getNodeInfo());
 
   console.log(

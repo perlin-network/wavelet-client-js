@@ -6,7 +6,7 @@
 A developer-friendly stateless HTTP client for interacting with a Wavelet node. Wrriten in JavaScript.
 
 
-### Wavelet (Himitsu)
+### **Wavelet (Himitsu)**
 Starting from v2, **wavelet-client** will support the new version of Wavelet (Himitsu).
 
 For support of older Wavelet please use v1.
@@ -34,6 +34,7 @@ const BigInt = JSBI.BigInt;
 const client = new Wavelet("http://127.0.0.1:9000");
 
 (async () => {
+    console.log(Wavelet.generateNewWallet());
     console.log(await client.getNodeInfo());
 
     console.log(await client.getAccount('400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405'));

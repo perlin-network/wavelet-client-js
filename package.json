@@ -32,6 +32,7 @@
     "atob": "^2.1.2",
     "axios": "^0.19.0",
     "babel-loader": "^8.0.6",
+    "blakejs": "^1.1.0",
     "core-js": "^3.3.3",
     "jsbi": "^2.0.5",
     "text-encoding": "^0.7.0",
