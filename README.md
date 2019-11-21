@@ -5,6 +5,12 @@
 
 A developer-friendly stateless HTTP client for interacting with a Wavelet node. Wrriten in JavaScript.
 
+
+### Wavelet (Himitsu)
+Starting from v2, **wavelet-client** will support the new version of Wavelet (Himitsu).
+
+For support of older Wavelet please use v1.
+
 The entire source code of this client was written to just fit within a single JavaScript file to make
 the underlying code simple and easy to understand. The client has a _very_ minimal set of dependencies
 that are well-audited.
@@ -21,9 +27,8 @@ yarn add wavelet-client
 ## Usage
 
 ```javascript
-const {Wavelet, Contract, TAG_TRANSFER} = require('..');
+const {Wavelet, Contract, TAG_TRANSFER, JSBI} = require('..');
 
-const JSBI = require('jsbi');
 const BigInt = JSBI.BigInt;
 
 const client = new Wavelet("http://127.0.0.1:9000");
