@@ -500,6 +500,9 @@ class Wavelet {
      */
     constructor(host, opts = {}) {
         this.host = host;
+        this.nonceCache = {};
+        this.lastBlock = 0;
+
         this.opts = {
             ...opts, transformRequest: [(data, headers) => {
                 headers.common = {};
@@ -725,6 +728,7 @@ class Wavelet {
         return await this.sendTransaction(wallet, TAG_CONTRACT, builder.getBytes(), opts);
     }
 
+    
     /**
      * Send a transaction on behalf of a specified wallet with a designated
      * tag and payload.
@@ -737,18 +741,34 @@ class Wavelet {
      */
     async sendTransaction(wallet, tag, payload, opts = {}) {
         const payload_hex = Buffer.from(payload).toString("hex");
+        const sender = Buffer.from(wallet.publicKey).toString("hex");
+        const now = Date.now();
+        const nonceCacheExpire = 3 * 60 * 1000;     // expire nonce cache after 3 mins
 
+        if (this.nonceCache[sender] && (now - this.nonceCache[sender].updated < nonceCacheExpire)) {
+            this.nonceCache[sender].nonce++;
+        } else {
+            const { nonce, block } = await this.nonce(wallet);
+            this.lastBlock = Math.max(this.lastBlock, block);
+
+            this.nonceCache[sender] = {
+                nonce,
+                updated: Date.now()
+            };
+        }
+        
         const builder = new PayloadBuilder();
 
         builder.writeUint64(BigInt(0));
         builder.writeByte(tag);
         builder.writeBytes(payload);
 
-        const { nonce, block } = await this.nonce(wallet);
+        const nonce = this.nonceCache[sender].nonce;
+        const block = this.lastBlock;
 
         const message = Buffer.from([nonce, block, tag,  ...builder.getBytes()]);
         const signature = Buffer.from(nacl.sign.detached(message, wallet.secretKey)).toString("hex");
-        const sender = Buffer.from(wallet.publicKey).toString("hex");
+        
 
         const req = {
             sender, 
@@ -836,11 +856,13 @@ class Wavelet {
         return await this.pollWebsocket('/poll/consensus', {}, data => {
             switch (data.event) {
                 case "finalized":
+                    this.lastBlock = data.new_block_height;
                     if (callbacks && callbacks.onRoundEnded) {
                         callbacks.onRoundEnded(data);
                     }
                     break;
                 case "proposal":
+                    this.lastBlock = data.block_index;
                     if (callbacks && callbacks.onRoundProposal) {
                         callbacks.onRoundProposal(data);
                     }
