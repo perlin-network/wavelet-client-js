@@ -832,9 +832,9 @@ class Wavelet {
                         callbacks.onRoundEnded(data);
                     }
                     break;
-                case "prune":
-                    if (callbacks && callbacks.onRoundPruned) {
-                        callbacks.onRoundPruned(data);
+                case "proposal":
+                    if (callbacks && callbacks.onRoundProposal) {
+                        callbacks.onRoundProposal(data);
                     }
                     break;
             }

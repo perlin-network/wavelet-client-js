@@ -8,6 +8,7 @@
   "scripts": {
     "build": "rollup -c && npm run build:umd",
     "build:umd": "webpack",
+    "dev:umd": "webpack -w",
     "dev": "rollup -c -w",
     "test": "rollup -c && node test/test.js",
     "prepublish": "npm run build"
