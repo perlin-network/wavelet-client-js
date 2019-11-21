@@ -27,7 +27,7 @@ yarn add wavelet-client
 ## Usage
 
 ```javascript
-const {Wavelet, Contract, TAG_TRANSFER, JSBI} = require('..');
+const {Wavelet, Contract, TAG_TRANSFER, JSBI} = require('wavelet-client');
 
 const BigInt = JSBI.BigInt;
 
