@@ -758,7 +758,14 @@ class Wavelet {
             signature
         };
 
-        return (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), {...this.opts, ...opts})).data;
+        const data = (await axios.post(`${this.host}/tx/send`, JSON.stringify(req), {...this.opts, ...opts})).data;
+        return {
+            ...data,
+            get tx_id() {
+                console.warn("tx_id will be dreprecated. Please use id.");
+                return data.id
+            }
+        };
     }
 
     /**
