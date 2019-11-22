@@ -1,6 +1,4 @@
-const { Wavelet, Contract, TAG_TRANSFER } = require("..");
-
-const JSBI = require("jsbi");
+const { Wavelet, Contract, TAG_TRANSFER, JSBI, Buffer } = window["wavelet-client"];
 const BigInt = JSBI.BigInt;
 
 const client = new Wavelet("http://127.0.0.1:9000");

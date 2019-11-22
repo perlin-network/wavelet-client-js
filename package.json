@@ -26,12 +26,10 @@
     "perlin"
   ],
   "dependencies": {
-    "@babel/core": "^7.6.4",
-    "@babel/preset-env": "^7.6.3",
-    "@babel/runtime": "^7.5.5",
+    "@types/atob": "^2.1.2",
+    "@types/websocket": "^1.0.0",
     "atob": "^2.1.2",
     "axios": "^0.19.0",
-    "babel-loader": "^8.0.6",
     "blakejs": "^1.1.0",
     "core-js": "^3.3.3",
     "jsbi": "^2.0.5",
@@ -44,7 +42,16 @@
     "dist"
   ],
   "devDependencies": {
+    "@babel/core": "^7.6.4",
+    "@babel/preset-env": "^7.6.3",
+    "@babel/runtime": "^7.5.5",
+    "babel-loader": "^8.0.6",
     "rollup": "^1.16.3",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-typescript": "^1.0.1",
+    "ts-loader": "^6.2.1",
+    "tslib": "^1.10.0",
+    "typescript": "^3.7.2",
     "webpack": "^4.39.1",
     "webpack-cli": "^3.3.6"
   }
