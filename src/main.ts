@@ -42,20 +42,16 @@ DataView.prototype.setBigUint64 = function(
     this._setBigUint64(byteOffset, value, littleEndian);
   } else if (
     value.constructor === JSBI &&
-    // @ts-ignore
-    typeof value.sign === "bigint" &&
+    typeof value["sign"] === "bigint" &&
     typeof this._setBigUint64 !== "undefined"
   ) {
-    // @ts-ignore
-    this._setBigUint64(byteOffset, value.sign, littleEndian);
+    this._setBigUint64(byteOffset, value["sign"], littleEndian);
   } else if (
     value.constructor === JSBI ||
-    // @ts-ignore
-    (value.constructor && typeof value.constructor.BigInt === "function")
+    (value.constructor && typeof value.constructor["BigInt"] === "function")
   ) {
     let lowWord = value[0],
-      // @ts-ignore
-      highWord = value.length >= 2 ? value[1] : 0;
+      highWord = value["length"] >= 2 ? value[1] : 0;
 
     this.setUint32(
       littleEndian ? byteOffset : byteOffset + 4,
@@ -103,8 +99,8 @@ DataView.prototype.getBigUint64 = function(
 if (!global.TextDecoder) {
   global.TextDecoder = require("text-encoding").TextDecoder;
 }
-// @ts-ignore
-if (!ArrayBuffer.transfer) {
+
+if (!ArrayBuffer["transfer"]) {
   // Polyfill just in-case.
   /**
    * The static ArrayBuffer.transfer() method returns a new ArrayBuffer whose contents have
@@ -117,8 +113,7 @@ if (!ArrayBuffer.transfer) {
    * @param {number} newByteLength
    * @returns {ArrayBufferLike}
    */
-  // @ts-ignore
-  ArrayBuffer.transfer = (
+  ArrayBuffer["transfer"] = (
     oldBuffer: Uint8Array,
     newByteLength: number
   ): ArrayBuffer => {
@@ -155,8 +150,7 @@ class PayloadBuilder {
    */
   resizeIfNeeded(size: number) {
     if (this.offset + size > this.buf.byteLength) {
-      // @ts-ignore
-      this.buf = ArrayBuffer.transfer(this.buf, this.offset + size);
+      this.buf = ArrayBuffer["transfer"](this.buf, this.offset + size);
       this.view = new DataView(this.buf);
     }
   }
@@ -193,8 +187,7 @@ class PayloadBuilder {
    */
   writeInt64(n: BigInt) {
     this.resizeIfNeeded(8);
-    // @ts-ignore
-    this.view.setBigInt64(this.offset, n, true);
+    this.view.setBigInt64(this.offset, n as bigint, true);
     this.offset += 8;
   }
 
@@ -221,8 +214,7 @@ class PayloadBuilder {
    */
   writeUint64(n: BigInt) {
     this.resizeIfNeeded(8);
-    // @ts-ignore
-    this.view.setBigUint64(this.offset, n, true);
+    this.view.setBigUint64(this.offset, n as bigint, true);
     this.offset += 8;
   }
 
@@ -356,8 +348,7 @@ class Contract {
     this.rebuildContractPayload();
 
     // Clone the current browser VM's memory.
-    // @ts-ignore
-    const copy = ArrayBuffer.transfer(
+    const copy = ArrayBuffer["transfer"](
       this.vm.instance.exports.memory.buffer,
       this.vm.instance.exports.memory.buffer.byteLength
     );
@@ -893,7 +884,6 @@ class Wavelet {
     opts: AxiosRequestConfig = {}
   ): Promise<Object> {
     code = new Uint8Array(code);
-    // @ts-ignore
     params = new Uint8Array(params);
 
     const builder = new PayloadBuilder();
@@ -1169,11 +1159,14 @@ class Wavelet {
    * tag - Tag of a transaction.
    * payload - Binary-serialized payload of a transaction.
    */
-  static parseTransaction(tag: number, payload: string) {
+  static parseTransaction(
+    tag: number,
+    payload: string | Buffer
+  ): Object | void {
+    const buf = typeof payload === "string" ? str2ab(atob(payload)) : payload;
+
     switch (tag) {
       case TAG_TRANSFER: {
-        const buf = str2ab(atob(payload));
-
         if (buf.byteLength < 32 + 8) {
           throw new Error(
             "transfer: payload does not contain recipient id or amount"
@@ -1214,8 +1207,6 @@ class Wavelet {
         return tx;
       }
       case TAG_CONTRACT: {
-        const buf = str2ab(atob(payload));
-
         if (buf.byteLength < 12) {
           throw new Error("contract: payload is malformed");
         }
@@ -1235,8 +1226,6 @@ class Wavelet {
         return tx;
       }
       case TAG_STAKE: {
-        const buf = str2ab(atob(payload));
-
         if (buf.byteLength !== 9) {
           throw new Error("stake: payload must be exactly 9 bytes");
         }
@@ -1267,7 +1256,6 @@ class Wavelet {
         return tx;
       }
       case TAG_BATCH: {
-        const buf = str2ab(atob(payload));
         const view = new DataView(buf);
 
         const len = view.getUint8(0);
@@ -1284,7 +1272,6 @@ class Wavelet {
           const payload = Buffer.from(new Uint8Array(buf, offset, payloadLen));
           offset += payloadLen;
 
-          // @ts-ignore
           transactions.push(this.parseTransaction(tag, payload));
         }
 
