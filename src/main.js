@@ -728,7 +728,7 @@ class Wavelet {
         return await this.sendTransaction(wallet, TAG_CONTRACT, builder.getBytes(), opts);
     }
 
-    
+
     /**
      * Send a transaction on behalf of a specified wallet with a designated
      * tag and payload.
@@ -807,7 +807,10 @@ class Wavelet {
                 }
                 data.forEach(item => {
                     if (item.event === "nonce_updated") {
-                        this.nonceCache[item.account_id] =  item.nonce;
+                        this.nonceCache[item.account_id] = {
+                            nonce: item.nonce,
+                            updated: Date.now()
+                        };
                     }
                     callbacks.onAccountUpdated(item)
                 });
