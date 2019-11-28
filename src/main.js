@@ -801,20 +801,20 @@ class Wavelet {
         if (opts && opts.id && typeof opts.id === "string" && opts.id.length === 64) params.id = opts.id;
 
         return await this.pollWebsocket('/poll/accounts', params, data => {
-            if (callbacks && callbacks.onAccountUpdated) {
-                if (!Array.isArray(data)) {
-                    data = [data];
-                }
-                data.forEach(item => {
-                    if (item.event === "nonce_updated") {
-                        this.nonceCache[item.account_id] = {
-                            nonce: item.nonce,
-                            updated: Date.now()
-                        };
-                    }
-                    callbacks.onAccountUpdated(item)
-                });
+            if (!Array.isArray(data)) {
+                data = [data];
             }
+            data.forEach(item => {
+                if (item.event === "nonce_updated") {
+                    this.nonceCache[item.account_id] = {
+                        nonce: item.nonce,
+                        updated: Date.now()
+                    };
+                }
+                if (callbacks && callbacks.onAccountUpdated) {
+                    callbacks.onAccountUpdated(item)
+                }
+            });
         })
     }
 
