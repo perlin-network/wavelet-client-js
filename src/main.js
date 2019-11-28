@@ -805,7 +805,12 @@ class Wavelet {
                 if (!Array.isArray(data)) {
                     data = [data];
                 }
-                data.forEach(item => callbacks.onAccountUpdated(item));
+                data.forEach(item => {
+                    if (item.event === "nonce_updated") {
+                        this.nonceCache[item.account_id] =  item.nonce;
+                    }
+                    callbacks.onAccountUpdated(item)
+                });
             }
         })
     }
