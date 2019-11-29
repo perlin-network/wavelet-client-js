@@ -3,7 +3,6 @@
   "version": "2.0.0",
   "main": "dist/wavelet-client.cjs.js",
   "module": "dist/wavelet-client.esm.js",
-  "browser": "dist/wavelet-client.umd.js",
   "license": "MIT",
   "scripts": {
     "build": "rollup -c && npm run build:umd",
