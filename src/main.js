@@ -500,7 +500,7 @@ class Wavelet {
      */
     constructor(host, opts = {}) {
         this.host = host;
-        this.lastBlock = 0;
+        this.initLastBlock();
 
         this.opts = {
             ...opts, transformRequest: [(data, headers) => {
@@ -511,6 +511,10 @@ class Wavelet {
         };
     }
 
+    async initLastBlock() {
+        const { block } = await this.getNodeInfo();
+        this.lastBlock = block.height;
+    }
     /**
      * Query for information about the node you are connected to.
      *
@@ -742,6 +746,11 @@ class Wavelet {
         const sender = Buffer.from(wallet.publicKey).toString("hex");
         
         const builder = new PayloadBuilder();
+        
+        if (typeof this.lastBlock === undefined) {
+            await this.initLastBlock();
+        }
+
         let block = this.lastBlock;
 
         const printBin = (val) => {
