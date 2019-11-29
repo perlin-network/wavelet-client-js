@@ -623,10 +623,21 @@ class Wavelet {
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<Object>}
      */
-    async transfer(wallet, recipient, amount, gas_limit = 0, gas_deposit = 0, func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
+    async transfer(wallet, recipient, amount, gas_limit = BigInt(0), gas_deposit = BigInt(0), func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
         const builder = new PayloadBuilder();
 
         builder.writeBytes(Buffer.from(recipient, "hex"));
+
+        if (typeof amount !== 'bigint' || amount.constructor !== JSBI) {
+            amount = BigInt(amount);
+        }
+        if (typeof gas_limit !== 'bigint' || gas_limit.constructor !== JSBI) {
+            gas_limit = BigInt(gas_limit);
+        }
+        if (typeof gas_deposit !== 'bigint' || gas_deposit.constructor !== JSBI) {
+            gas_deposit = BigInt(gas_deposit);
+        }
+
         builder.writeUint64(amount);
 
         if (JSBI.GT(gas_limit, BigInt(0)) || func_name.length > 0 || func_payload.length > 0) {
