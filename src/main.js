@@ -770,16 +770,23 @@ class Wavelet {
         
         const builder = new PayloadBuilder();
 
-        builder.writeUint64(BigInt(0));
+        let nonce = this.nonceCache[sender].nonce;
+        let block = this.lastBlock;
+
+        const printBin = (val) => {
+            let out = val.toString(2);
+            while (out.length < 8) {
+                out = "0" + out;
+            }
+            return new Buffer.from(out.split(''));
+        };
+
+        builder.writeBytes(printBin(BigInt(nonce)));
+        builder.writeBytes(printBin(BigInt(block)));
         builder.writeByte(tag);
         builder.writeBytes(payload);
-
-        const nonce = this.nonceCache[sender].nonce;
-        const block = this.lastBlock;
-
-        const message = Buffer.from([nonce, block, tag,  ...builder.getBytes()]);
-        const signature = Buffer.from(nacl.sign.detached(message, wallet.secretKey)).toString("hex");
         
+        const signature = Buffer.from(nacl.sign.detached(builder.getBytes(), wallet.secretKey)).toString("hex");
 
         const req = {
             sender, 
