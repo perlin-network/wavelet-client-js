@@ -1,10 +1,10 @@
-const axios = require("axios");
-const atob = require("atob");
-const nacl = require("tweetnacl");
-const url = require("url");
-const { blake2b } = require("blakejs");
+import axios from "axios";
+import atob from "atob";
+import nacl from "tweetnacl";
+import url from "url";
+import { blake2b } from "blakejs";
 
-const WebSocket = require("websocket");
+import WebSocket from "websocket";
 const WebSocketClient = WebSocket.w3cwebsocket;
 
 const TAG_TRANSFER = 1;
@@ -1073,4 +1073,4 @@ class Wavelet {
     }
 }
 
-export default {Wavelet, Contract, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, Buffer, JSBI};
+export { Wavelet, Contract, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, JSBI };
