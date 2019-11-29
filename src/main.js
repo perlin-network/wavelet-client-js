@@ -500,7 +500,6 @@ class Wavelet {
      */
     constructor(host, opts = {}) {
         this.host = host;
-        this.nonceCache = {};
         this.lastBlock = 0;
 
         this.opts = {
@@ -597,18 +596,6 @@ class Wavelet {
         return memory;
     }
 
-    /**
-     * Get nonce and block value for an account.
-     * This is required for sending transaction
-     *
-     * @param {nacl.SignKeyPair} wallet
-     * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
-    */
-    async nonce(wallet, opts = {}) {
-        const account = Buffer.from(wallet.publicKey).toString("hex");
-        const result = await axios.get(`${this.host}/nonce/${account}`, {...this.opts, ...opts});
-        return result.data;
-    }
     /**
      * Transfer some amount of PERLs to a recipient, or invoke a function on
      * a smart contract should the recipient specified be a smart contract.
@@ -753,24 +740,8 @@ class Wavelet {
     async sendTransaction(wallet, tag, payload, opts = {}) {
         const payload_hex = Buffer.from(payload).toString("hex");
         const sender = Buffer.from(wallet.publicKey).toString("hex");
-        const now = Date.now();
-        const nonceCacheExpire = 3 * 60 * 1000;     // expire nonce cache after 3 mins
-
-        if (this.nonceCache[sender] && (now - this.nonceCache[sender].updated < nonceCacheExpire)) {
-            this.nonceCache[sender].nonce++;
-        } else {
-            const { nonce, block } = await this.nonce(wallet);
-            this.lastBlock = Math.max(this.lastBlock, block);
-
-            this.nonceCache[sender] = {
-                nonce,
-                updated: Date.now()
-            };
-        }
         
         const builder = new PayloadBuilder();
-
-        let nonce = this.nonceCache[sender].nonce;
         let block = this.lastBlock;
 
         const printBin = (val) => {
@@ -781,7 +752,6 @@ class Wavelet {
             return new Buffer.from(out.split(''));
         };
 
-        builder.writeBytes(printBin(BigInt(nonce)));
         builder.writeBytes(printBin(BigInt(block)));
         builder.writeByte(tag);
         builder.writeBytes(payload);
@@ -790,7 +760,6 @@ class Wavelet {
 
         const req = {
             sender, 
-            nonce,
             block,
             tag,
             payload: payload_hex, 
@@ -822,17 +791,11 @@ class Wavelet {
             if (!Array.isArray(data)) {
                 data = [data];
             }
-            data.forEach(item => {
-                if (item.event === "nonce_updated") {
-                    this.nonceCache[item.account_id] = {
-                        nonce: item.nonce,
-                        updated: Date.now()
-                    };
-                }
-                if (callbacks && callbacks.onAccountUpdated) {
+            if (callbacks && callbacks.onAccountUpdated) {
+                data.forEach(item => {   
                     callbacks.onAccountUpdated(item)
-                }
-            });
+                });
+            }
         })
     }
 
