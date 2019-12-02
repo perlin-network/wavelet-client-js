@@ -750,17 +750,18 @@ class Wavelet {
         if (typeof this.lastBlock === undefined) {
             await this.initLastBlock();
         }
-
-        let block = this.lastBlock;
+        const nonce = Date.now();
+        const block = this.lastBlock;
 
         const printBin = (val) => {
             let out = val.toString(2);
-            while (out.length < 8) {
+            while (out.length < 64) {
                 out = "0" + out;
             }
             return new Buffer.from(out.split(''));
         };
-
+        
+        builder.writeBytes(printBin(BigInt(nonce)));
         builder.writeBytes(printBin(BigInt(block)));
         builder.writeByte(tag);
         builder.writeBytes(payload);
@@ -770,6 +771,7 @@ class Wavelet {
         const req = {
             sender, 
             block,
+            nonce,
             tag,
             payload: payload_hex, 
             signature

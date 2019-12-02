@@ -1,28 +1,43 @@
-const { Wavelet, Contract, TAG_TRANSFER } = require("..");
 
-const JSBI = require("jsbi");
+const { Wavelet, Contract, TAG_TRANSFER, JSBI, Buffer } = window["wavelet-client"];//require("..");
+
+// const JSBI = require("jsbi");
 const BigInt = JSBI.BigInt;
 
 const client = new Wavelet("http://127.0.0.1:9000");
 
 (async () => {
   console.log(Wavelet.generateNewWallet());
-  console.log(await client.getNodeInfo());
+  // console.log(await client.getNodeInfo());
 
   console.log(
     await client.getAccount(
       "400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"
     )
   );
+  
+  const wallet = Wavelet.loadWalletFromPrivateKey(
+    "87a6813c3b4cf534b6ae82db9b1409fa7dbd5c13dba5858970b56084c4a930eb400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"
+  );
+  
+
+  await client.pollTransactions(
+    { onTransactionApplied: console.log },
+    {
+      tag: TAG_TRANSFER,
+      sender:
+        "400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"
+    }
+  );
+  await client.transfer(wallet, "696937c2c8df35dba0169de72990b80761e51dd9e2411fa1fce147f68ade830a", 12);
+  return;
 
   const transfer = await client.getTransaction(
     "575cec95a7736bf7918d07f6f2b5892c1d1f89ecfd6008144f051e5a4acd63f5"
   );
   console.log(Wavelet.parseTransaction(transfer.tag, transfer.payload));
 
-  const wallet = Wavelet.loadWalletFromPrivateKey(
-    "87a6813c3b4cf534b6ae82db9b1409fa7dbd5c13dba5858970b56084c4a930eb400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"
-  );
+  
   const account = await client.getAccount(
     Buffer.from(wallet.publicKey).toString("hex")
   );
