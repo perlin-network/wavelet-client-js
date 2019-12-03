@@ -3,6 +3,7 @@ import atob from "atob";
 import nacl from "tweetnacl";
 import url from "url";
 import { blake2b } from "blakejs";
+import { toBufferBE } from 'bigint-buffer';
 
 import WebSocket from "websocket";
 const WebSocketClient = WebSocket.w3cwebsocket;
@@ -752,17 +753,12 @@ class Wavelet {
         }
         const nonce = Date.now();
         const block = this.lastBlock;
-
-        const printBin = (val) => {
-            let out = val.toString(2);
-            while (out.length < 64) {
-                out = "0" + out;
-            }
-            return new Buffer.from(out.split(''));
-        };
         
-        builder.writeBytes(printBin(BigInt(nonce)));
-        builder.writeBytes(printBin(BigInt(block)));
+        const binNonce = toBufferBE(nonce, 8);
+        const binBlock = toBufferBE(block, 8);
+
+        builder.writeBytes(binNonce);
+        builder.writeBytes(binBlock);
         builder.writeByte(tag);
         builder.writeBytes(payload);
         
