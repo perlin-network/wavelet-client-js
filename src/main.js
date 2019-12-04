@@ -503,7 +503,8 @@ class Wavelet {
      * @param {Uint8Array} payload Binary payload of the transaction.
      * @returns {number}
      */
-    calculateFee(payload) {
+    calculateFee(tag, ...args) {
+        const payload = this.generatePayload(tag, ...args);
         return payload.byteLength / 100 * 5;
     }
 

@@ -2,8 +2,8 @@ import PayloadBuilder from "./payload-builder";
 import { toBufferBE } from "bigint-buffer";
 import JSBI from "jsbi";
 
-
-const BigInt = window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
+const BigInt =
+    window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
 
 export const normalizeNumber = value => {
     if (typeof value !== "bigint" || value.constructor !== JSBI) {
@@ -15,10 +15,10 @@ export const normalizeNumber = value => {
 export const getTransfer = (
     recipient,
     amount,
-    gas_limit,
-    gas_deposit,
-    func_name,
-    func_payload
+    gas_limit = 0,
+    gas_deposit = 0,
+    func_name = "",
+    func_payload = new Uint8Array(new ArrayBuffer(0))
 ) => {
     const builder = new PayloadBuilder();
 
@@ -57,8 +57,7 @@ export const getTransfer = (
     return payload;
 };
 
-export const getContract = (code, gas_limit, gas_deposit, params) => {
-    debugger;
+export const getContract = (code, gas_limit = 0, gas_deposit = 0, params = []) => {
     gas_limit = normalizeNumber(gas_limit);
     gas_deposit = normalizeNumber(gas_deposit);
 
@@ -77,7 +76,7 @@ export const getContract = (code, gas_limit, gas_deposit, params) => {
     return payload;
 };
 
-export const getStake = (stakeByte, amount) => {
+export const getStake = (stakeByte, amount = 0) => {
     amount = normalizeNumber(amount);
 
     const builder = new PayloadBuilder();
