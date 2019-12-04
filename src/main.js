@@ -3,8 +3,8 @@ import atob from "atob";
 import nacl from "tweetnacl";
 import url from "url";
 import { blake2b } from "blakejs";
-import { toBufferBE } from 'bigint-buffer';
-
+import * as payloads from "./payloads";
+import JSBI from "jsbi";
 import WebSocket from "websocket";
 const WebSocketClient = WebSocket.w3cwebsocket;
 
@@ -13,13 +13,10 @@ const TAG_CONTRACT = 2;
 const TAG_STAKE = 3;
 const TAG_BATCH = 4;
 
-const JSBI = require('jsbi');
-
 if (typeof window === 'undefined') {
     var window = window || {};
     var global = global || window;
 }
-
 const BigInt = window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
 
 /**
@@ -98,127 +95,7 @@ if (!ArrayBuffer.transfer) { // Polyfill just in-case.
     };
 }
 
-class PayloadBuilder {
-    /**
-     * A payload builder made for easier handling of binary serialization of
-     * data for Wavelet to ingest.
-     */
-    constructor() {
-        this.buf = new ArrayBuffer(0);
-        this.view = new DataView(this.buf);
-        this.offset = 0;
-    }
 
-    /**
-     * Resizes the underlying buffer should it not be large enough to handle
-     * some chunk of data to be appended to buffer.
-     *
-     * @param {number} size Size of data to be appended to the buffer.
-     */
-    resizeIfNeeded(size) {
-        if (this.offset + size > this.buf.byteLength) {
-            this.buf = ArrayBuffer.transfer(this.buf, this.offset + size);
-            this.view = new DataView(this.buf);
-        }
-    }
-
-    /**
-     * Write a single byte to the payload buffer.
-     *
-     * @param {number} n A single byte.
-     */
-    writeByte(n) {
-        this.resizeIfNeeded(1);
-        this.view.setUint8(this.offset, n);
-        this.offset += 1;
-    }
-
-    /**
-     * Write an signed little-endian 16-bit integer to the payload buffer.
-     *
-     * @param {number} n
-     */
-    writeInt16(n) {
-        this.resizeIfNeeded(2);
-        this.view.setInt16(this.offset, n, true);
-        this.offset += 2;
-    }
-
-    /**
-     * Write an signed little-endian 32-bit integer to the payload buffer.
-     *
-     * @param {number} n
-     */
-    writeInt32(n) {
-        this.resizeIfNeeded(4);
-        this.view.setInt32(this.offset, n, true);
-        this.offset += 4;
-    }
-
-    /**
-     * Write a signed little-endian 64-bit integer to the payload buffer.
-     *
-     * @param {bigint} n
-     */
-    writeInt64(n) {
-        this.resizeIfNeeded(8);
-        this.view.setBigInt64(this.offset, n, true);
-        this.offset += 8;
-    }
-
-    /**
-     * Write an unsigned little-endian 16-bit integer to the payload buffer.
-     *
-     * @param {number} n
-     */
-    writeUint16(n) {
-        this.resizeIfNeeded(2);
-        this.view.setUint16(this.offset, n, true);
-        this.offset += 2;
-    }
-
-    /**
-     * Write an unsigned little-endian 32-bit integer to the payload buffer.
-     *
-     * @param {number} n
-     */
-    writeUint32(n) {
-        this.resizeIfNeeded(4);
-        this.view.setUint32(this.offset, n, true);
-        this.offset += 4;
-    }
-
-    /**
-     * Write an unsigned little-endian 64-bit integer to the payload buffer.
-     *
-     * @param {bigint} n
-     */
-    writeUint64(n) {
-        this.resizeIfNeeded(8);
-        this.view.setBigUint64(this.offset, n, true);
-        this.offset += 8;
-    }
-
-    /**
-     * Write a series of bytes to the payload buffer.
-     *
-     * @param {ArrayBufferLike} buf
-     */
-    writeBytes(buf) {
-        this.resizeIfNeeded(buf.byteLength);
-        new Uint8Array(this.buf, this.offset, buf.byteLength).set(buf);
-        this.offset += buf.byteLength;
-    }
-
-    /**
-     * Returns the raw bytes of the payload buffer.
-     *
-     * @returns {Uint8Array}
-     */
-    getBytes() {
-        return new Uint8Array(this.buf.slice(0, this.offset));
-    }
-}
 
 class Contract {
     /**
@@ -245,7 +122,7 @@ class Contract {
         this.result = null;
         this.logs = [];
 
-        this.rebuildContractPayload();
+        this.contract_payload_buf = payloads.rebuildContractPayload(this.contract_payload);
     }
 
     /**
@@ -306,10 +183,10 @@ class Contract {
             throw new Error("could not find function in smart contract");
         }
 
-        this.contract_payload.params = this.parseFunctionParams(...func_params);
+        this.contract_payload.params = payloads.parseFunctionParams(...func_params);
         this.contract_payload.amount = amount_to_send;
         this.contract_payload.sender_id = Buffer.from(wallet.publicKey).toString("hex");
-        this.rebuildContractPayload();
+        this.contract_payload_buf = payloads.rebuildContractPayload(this.contract_payload);
 
         // Clone the current browser VM's memory.
         const copy = ArrayBuffer.transfer(this.vm.instance.exports.memory.buffer, this.vm.instance.exports.memory.buffer.byteLength);
@@ -345,81 +222,12 @@ class Contract {
      * @returns {Promise<Object>} Response from the Wavelet node.
      */
     async call(wallet, func_name, amount_to_send, gas_limit, gas_deposit, ...func_params) {
-        return await this.client.transfer(wallet, this.contract_id, amount_to_send, gas_limit, gas_deposit, func_name, this.parseFunctionParams(...func_params));
+        return await this.client.transfer(wallet, this.contract_id, amount_to_send, gas_limit, gas_deposit, func_name, payloads.parseFunctionParams(...func_params));
     }
 
-    /**
-     * Parses smart contract function parameters as a variadic list of arguments, and translates
-     * them into an array of bytes suitable for passing on to a single smart contract invocation call.
-     *
-     * @param {...{type: ('int16'|'int32'|'int64'|'uint16'|'uint32'|'uint64'|'byte'|'raw'|'bytes'|'string'), value: number|string|ArrayBuffer|Uint8Array}} params Variadic list of arguments.
-     * @returns {Uint8Array} Parameters serialized into bytes.
-     */
-    parseFunctionParams(...params) {
-        const builder = new PayloadBuilder();
+   
 
-        params.forEach(param => {
-            switch (param.type) {
-                case "int16":
-                    builder.writeInt16(param.value);
-                    break;
-                case "int32":
-                    builder.writeInt32(param.value);
-                    break;
-                case "int64":
-                    builder.writeInt64(param.value);
-                case "uint16":
-                    builder.writeUint16(param.value);
-                    break;
-                case "uint32":
-                    builder.writeUint32(param.value);
-                    break;
-                case "uint64":
-                    builder.writeUint64(param.value);
-                    break;
-                case "byte":
-                    builder.writeByte(param.value);
-                    break;
-                case "raw":
-                    if (typeof param.value === "string") { // Assume that it is hex-encoded.
-                        param.value = new Uint8Array(param.value.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
-                    }
-
-                    builder.writeBytes(param.value);
-                    break;
-                case "bytes":
-                    if (typeof param.value === "string") { // Assume that it is hex-encoded.
-                        param.value = new Uint8Array(param.value.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
-                    }
-
-                    builder.writeUint32(param.value.byteLength);
-                    builder.writeBytes(param.value);
-                    break;
-                case "string":
-                    builder.writeBytes(Buffer.from(param.value, 'utf8'));
-                    builder.writeByte(0);
-                    break;
-            }
-        });
-
-        return builder.getBytes();
-    }
-
-    /**
-     * Based on updates to simulation settings for this smart contract, re-build the
-     * smart contracts payload.
-     */
-    rebuildContractPayload() {
-        const builder = new PayloadBuilder();
-        builder.writeUint64(this.contract_payload.round_idx);
-        builder.writeBytes(Buffer.from(this.contract_payload.round_id, "hex"));
-        builder.writeBytes(Buffer.from(this.contract_payload.transaction_id, "hex"));
-        builder.writeBytes(Buffer.from(this.contract_payload.sender_id, "hex"));
-        builder.writeUint64(this.contract_payload.amount);
-        builder.writeBytes(this.contract_payload.params);
-
-        this.contract_payload_buf = builder.getBytes();
-    }
+   
 
     /**
      * Fetches and re-loads the memory of the backing WebAssembly VM for this smart contract; optionally
@@ -499,7 +307,7 @@ class Wavelet {
      * @param {string} host Address to the HTTP API of a Wavelet node.
      * @param {Object=} opts Default options to be passed for making any HTTP request calls using this client instance (optional).
      */
-    constructor(host, opts = {}) {
+    constructor(host, opts = {}, useMoonlet = false) {
         this.host = host;
         this.initLastBlock();
 
@@ -512,6 +320,7 @@ class Wavelet {
         };
     }
 
+   
     async initLastBlock() {
         const { block } = await this.getNodeInfo();
         this.lastBlock = block.height;
@@ -616,41 +425,10 @@ class Wavelet {
      * @returns {Promise<Object>}
      */
     async transfer(wallet, recipient, amount, gas_limit = BigInt(0), gas_deposit = BigInt(0), func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
-        const builder = new PayloadBuilder();
-
-        builder.writeBytes(Buffer.from(recipient, "hex"));
-
-        if (typeof amount !== 'bigint' || amount.constructor !== JSBI) {
-            amount = BigInt(amount);
-        }
-        if (typeof gas_limit !== 'bigint' || gas_limit.constructor !== JSBI) {
-            gas_limit = BigInt(gas_limit);
-        }
-        if (typeof gas_deposit !== 'bigint' || gas_deposit.constructor !== JSBI) {
-            gas_deposit = BigInt(gas_deposit);
-        }
-
-        builder.writeUint64(amount);
-
-        if (JSBI.GT(gas_limit, BigInt(0)) || func_name.length > 0 || func_payload.length > 0) {
-            if (func_name.length === 0) { // Default to 'on_money_received' if no func name is specified.
-                func_name = "on_money_received";
-            }
-
-            const func_name_buf = Buffer.from(func_name, 'utf8');
-            const func_payload_buf = new Uint8Array(func_payload);
-
-            builder.writeUint64(gas_limit);
-            builder.writeUint64(gas_deposit);
-
-            builder.writeUint32(func_name_buf.byteLength);
-            builder.writeBytes(func_name_buf);
-
-            builder.writeUint32(func_payload_buf.byteLength);
-            builder.writeBytes(func_payload_buf);
-        }
-
-        return await this.sendTransaction(wallet, TAG_TRANSFER, builder.getBytes(), opts);
+        
+        const payload = this.generatePayload(TAG_TRANSFER, recipient, amount, gas_limit, gas_deposit, func_name, func_payload);
+        
+        return await this.sendTransaction(wallet, TAG_TRANSFER, payload, opts);
     }
 
     /**
@@ -662,12 +440,10 @@ class Wavelet {
      * @returns {Promise<*>}
      */
     async placeStake(wallet, amount, opts = {}) {
-        const builder = new PayloadBuilder();
+        const PLACE_STAKE = 1;
+        const payload = this.generatePayload(TAG_STAKE, PLACE_STAKE, amount);
 
-        builder.writeByte(1);
-        builder.writeUint64(amount);
-
-        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), opts);
+        return await this.sendTransaction(wallet, TAG_STAKE, payload, opts);
     }
 
     /**
@@ -679,12 +455,11 @@ class Wavelet {
      * @returns {Promise<*>}
      */
     async withdrawStake(wallet, amount, opts = {}) {
-        const builder = new PayloadBuilder();
+        const WITHDRAW_STAKE = 0;
 
-        builder.writeByte(0);
-        builder.writeUint64(amount);
+        const payload = this.generatePayload(TAG_STAKE, WITHDRAW_STAKE, amount);
 
-        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), opts);
+        return await this.sendTransaction(wallet, TAG_STAKE, payload, opts);
     }
 
     /**
@@ -697,12 +472,11 @@ class Wavelet {
      * @returns {Promise<*>}
      */
     async withdrawReward(wallet, amount, opts = {}) {
-        const builder = new PayloadBuilder();
+        const WITHDRAW_REWARD = 2;
+        
+        const payload = this.generatePayload(TAG_STAKE, WITHDRAW_REWARD, amount);
 
-        builder.writeByte(2);
-        builder.writeUint64(amount);
-
-        return await this.sendTransaction(wallet, TAG_STAKE, builder.getBytes(), opts);
+        return await this.sendTransaction(wallet, TAG_STAKE, payload, opts);
     }
 
     /**
@@ -717,21 +491,41 @@ class Wavelet {
      * @returns {Promise<*>}
      */
     async deployContract(wallet, code, gas_limit, gas_deposit = 0, params = [], opts = {}) {
-        code = new Uint8Array(code);
-        params = new Uint8Array(params);
+        const payload = this.generatePayload(TAG_CONTRACT, code, gas_limit, gas_deposit, params);
 
-        const builder = new PayloadBuilder();
+        return await this.sendTransaction(wallet, TAG_CONTRACT, payload, opts);
+    }
 
-        builder.writeUint64(gas_limit);
-        builder.writeUint64(gas_deposit);
-        builder.writeUint32(params.byteLength);
-        builder.writeBytes(params);
-        builder.writeBytes(code);
-
-        return await this.sendTransaction(wallet, TAG_CONTRACT, builder.getBytes(), opts);
+    
+    /**
+     * Calculates the transaction fee based on the payload
+     *
+     * @param {Uint8Array} payload Binary payload of the transaction.
+     * @returns {number}
+     */
+    calculateFee(payload) {
+        return payload.byteLength / 100 * 5;
     }
 
 
+    /**
+     * Generates payload based on the tag
+     *
+     * @param {number} tag Tag of the transaction.
+     * @returns {Uint8Array}
+     */
+    generatePayload(tag, ...args) {
+        switch(tag) {
+            case TAG_TRANSFER: 
+                return payloads.getTransfer(...args);
+            case TAG_CONTRACT:
+                return payloads.getContract(...args);
+            case TAG_STAKE:
+                return payloads.getStake(...args);
+            default:
+                throw Error(`No payload type found for ${tag}`);
+        }
+    }
     /**
      * Send a transaction on behalf of a specified wallet with a designated
      * tag and payload.
@@ -746,23 +540,15 @@ class Wavelet {
         const payload_hex = Buffer.from(payload).toString("hex");
         const sender = Buffer.from(wallet.publicKey).toString("hex");
         
-        const builder = new PayloadBuilder();
-        
-        if (typeof this.lastBlock === undefined) {
+        if (typeof this.lastBlock === "undefined") {
             await this.initLastBlock();
         }
+
         const nonce = Date.now();
         const block = this.lastBlock;
         
-        const binNonce = toBufferBE(nonce, 8);
-        const binBlock = toBufferBE(block, 8);
-
-        builder.writeBytes(binNonce);
-        builder.writeBytes(binBlock);
-        builder.writeByte(tag);
-        builder.writeBytes(payload);
-        
-        const signature = Buffer.from(nacl.sign.detached(builder.getBytes(), wallet.secretKey)).toString("hex");
+        const signPayload = payloads.getTransaction(tag, nonce, block, payload);
+        const signature = Buffer.from(nacl.sign.detached(signPayload, wallet.secretKey)).toString("hex");
 
         const req = {
             sender, 
