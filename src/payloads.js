@@ -2,6 +2,10 @@ import PayloadBuilder from "./payload-builder";
 import { toBufferBE } from "bigint-buffer";
 import JSBI from "jsbi";
 
+if (typeof window === 'undefined') {
+    var window = window || {};
+    var global = global || window;
+}
 const BigInt =
     window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
 
