@@ -1,6 +1,6 @@
 {
   "name": "wavelet-client",
-  "version": "2.0.0-rc.3",
+  "version": "2.0.0-rc.4",
   "main": "dist/wavelet-client.cjs.js",
   "module": "dist/wavelet-client.esm.js",
   "license": "MIT",
@@ -25,12 +25,8 @@
     "perlin"
   ],
   "dependencies": {
-    "@babel/core": "^7.6.4",
-    "@babel/preset-env": "^7.6.3",
-    "@babel/runtime": "^7.5.5",
     "atob": "^2.1.2",
     "axios": "^0.19.0",
-    "babel-loader": "^8.0.6",
     "bigint-buffer": "^1.1.5",
     "blakejs": "^1.1.0",
     "core-js": "^3.3.3",
@@ -46,6 +42,10 @@
   "devDependencies": {
     "rollup": "^1.16.3",
     "webpack": "^4.39.1",
-    "webpack-cli": "^3.3.6"
+    "webpack-cli": "^3.3.6",
+    "@babel/core": "^7.6.4",
+    "@babel/preset-env": "^7.6.3",
+    "@babel/runtime": "^7.5.5",
+    "babel-loader": "^8.0.6"
   }
 }
