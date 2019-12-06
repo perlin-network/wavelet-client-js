@@ -5,6 +5,7 @@ import url from "url";
 import { blake2b } from "blakejs";
 import * as payloads from "./payloads";
 import JSBI from "jsbi";
+import JSONbig from "json-bigint";
 import WebSocket from "websocket";
 const WebSocketClient = WebSocket.w3cwebsocket;
 
@@ -312,10 +313,14 @@ class Wavelet {
         this.initLastBlock();
 
         this.opts = {
-            ...opts, transformRequest: [(data, headers) => {
+            ...opts, 
+            transformRequest: [(data, headers) => {
                 headers.common = {};
 
-                return data
+                return data;
+            }],
+            transformResponse: [(data) => {
+                return JSONbig.parse(data);
             }]
         };
     }
@@ -354,7 +359,8 @@ class Wavelet {
      * @returns {Promise<{public_key: string, nonce: bigint, balance: bigint, stake: bigint, reward: bigint, is_contract: boolean, num_mem_pages: bigint}>}
      */
     async getAccount(id, opts = {}) {
-        return (await axios.get(`${this.host}/accounts/${id}`, {...this.opts, ...opts})).data;
+        const response = await axios.get(`${this.host}/accounts/${id}`, {...this.opts, ...opts});
+        return response.data;
     }
 
     /**
@@ -681,7 +687,7 @@ class Wavelet {
 
             client.onmessage = msg => {
                 if (typeof msg.data !== 'string') return;
-                if (callback) callback(JSON.parse(msg.data));
+                if (callback) callback(JSONbig.parse(msg.data));
             };
         });
     }
