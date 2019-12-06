@@ -320,6 +320,7 @@ class Wavelet {
                 return data;
             }],
             transformResponse: [(data) => {
+                if (typeof data !== 'string') return data;
                 return JSONbig.parse(data);
             }]
         };
@@ -620,6 +621,7 @@ class Wavelet {
             data.forEach(item => {
                 switch (item.event) {
                     case "failed":
+                    case "rejected":
                     case "error":
                         if (callbacks && callbacks.onTransactionRejected) {
                             callbacks.onTransactionRejected(item);
