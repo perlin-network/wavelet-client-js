@@ -856,4 +856,4 @@ class Wavelet {
     }
 }
 
-export { Wavelet, Contract, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, JSBI };
+export { Wavelet, Contract, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, JSBI, Buffer };
