@@ -6,12 +6,10 @@ if (typeof window === 'undefined') {
     var window = window || {};
     var global = global || window;
 }
-const BigInt =
-    window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
 
 export const normalizeNumber = value => {
     if (typeof value !== "bigint" || value.constructor !== JSBI) {
-        return BigInt(value);
+        return JSBI.BigInt(value + "");
     }
     value;
 };
@@ -35,7 +33,7 @@ export const getTransfer = (
     builder.writeUint64(amount);
 
     if (
-        JSBI.GT(gas_limit, BigInt(0)) ||
+        JSBI.GT(gas_limit, JSBI.BigInt(0)) ||
         func_name.length > 0 ||
         func_payload.length > 0
     ) {
@@ -161,6 +159,12 @@ export const parseFunctionParams = (...params) => {
 };
 
 export const getTransaction = (tag, nonce, block, innerPayload) => {
+
+    // toBufferBE breaks in noced as it expects BigInt values
+    if (typeof BigInt !== "undefined") {
+        nonce = BigInt(nonce);
+        block = BigInt(block);
+    }
     const binNonce = toBufferBE(nonce, 8);
     const binBlock = toBufferBE(block, 8);
     const builder = new PayloadBuilder();

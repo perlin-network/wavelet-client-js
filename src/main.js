@@ -2,6 +2,7 @@ import axios from "axios";
 import atob from "atob";
 import nacl from "tweetnacl";
 import url from "url";
+import { Buffer } from "buffer";
 import { blake2b } from "blakejs";
 import * as payloads from "./payloads";
 import JSBI from "jsbi";
@@ -18,7 +19,6 @@ if (typeof window === 'undefined') {
     var window = window || {};
     var global = global || window;
 }
-const BigInt = window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
 
 /**
  * Converts a string to a Buffer.
@@ -37,9 +37,9 @@ const str2ab = str => {
 
 DataView.prototype._setBigUint64 = DataView.prototype.setBigUint64;
 DataView.prototype.setBigUint64 = function (byteOffset, value, littleEndian) {
-    if (typeof value === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+    if (typeof value === 'BigInt' && typeof this._setBigUint64 !== 'undefined') {
         this._setBigUint64(byteOffset, value, littleEndian);
-    } else if (value.constructor === JSBI && typeof value.sign === 'bigint' && typeof this._setBigUint64 !== 'undefined') {
+    } else if (value.constructor === JSBI && typeof value.sign === 'BigInt' && typeof this._setBigUint64 !== 'undefined') {
         this._setBigUint64(byteOffset, value.sign, littleEndian);
     } else if (value.constructor === JSBI || (value.constructor && typeof value.constructor.BigInt === 'function')) {
         let lowWord = value[0], highWord = value.length >= 2 ? value[1] : 0;
@@ -110,11 +110,11 @@ class Contract {
         this.contract_id = contract_id;
 
         this.contract_payload = {
-            round_idx: BigInt(0),
+            round_idx: JSBI.BigInt(0),
             round_id: "0000000000000000000000000000000000000000000000000000000000000000",
             transaction_id: "0000000000000000000000000000000000000000000000000000000000000000",
             sender_id: "0000000000000000000000000000000000000000000000000000000000000000",
-            amount: BigInt(0),
+            amount: JSBI.BigInt(0),
             params: new Uint8Array(new ArrayBuffer(0)),
         };
 
@@ -185,7 +185,7 @@ class Contract {
         }
 
         this.contract_payload.params = payloads.parseFunctionParams(...func_params);
-        this.contract_payload.amount = amount_to_send;
+        this.contract_payload.amount = payloads.normalizeNumber(amount_to_send);
         this.contract_payload.sender_id = Buffer.from(wallet.publicKey).toString("hex");
         this.contract_payload_buf = payloads.rebuildContractPayload(this.contract_payload);
 
@@ -357,7 +357,7 @@ class Wavelet {
      *
      * @param {string} id Hex-encoded account/smart contract address.
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
-     * @returns {Promise<{public_key: string, nonce: bigint, balance: bigint, stake: bigint, reward: bigint, is_contract: boolean, num_mem_pages: bigint}>}
+     * @returns {Promise<{public_key: string, nonce: JSBI.BigInt, balance: JSBI.BigInt, stake: JSBI.BigInt, reward: JSBI.BigInt, is_contract: boolean, num_mem_pages: JSBI.BigInt}>}
      */
     async getAccount(id, opts = {}) {
         const response = await axios.get(`${this.host}/accounts/${id}`, {...this.opts, ...opts});
@@ -431,7 +431,7 @@ class Wavelet {
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<Object>}
      */
-    async transfer(wallet, recipient, amount, gas_limit = BigInt(0), gas_deposit = BigInt(0), func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
+    async transfer(wallet, recipient, amount, gas_limit = JSBI.BigInt(0), gas_deposit = JSBI.BigInt(0), func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
         
         const payload = this.generatePayload(TAG_TRANSFER, recipient, amount, gas_limit, gas_deposit, func_name, func_payload);
         
