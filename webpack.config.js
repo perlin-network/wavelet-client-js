@@ -7,7 +7,6 @@ module.exports = {
     filename: "wavelet-client.umd.js",
     library: "wavelet-client",
     libraryTarget: "umd",
-    libraryExport: "default",
     globalObject: `(typeof self !== 'undefined' ? self : this)`
   },
   mode: "development",
