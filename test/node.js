@@ -18,7 +18,7 @@ function toArrayBuffer(buffer) {
 (async () => {
   console.log(Wavelet.generateNewWallet());
   const wallet = Wavelet.loadWalletFromPrivateKey(
-    "87a6813c3b4cf534b6ae82db9b1409fa7dbd5c13dba5858970b56084c4a930eb400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"
+    "ba3daa36b1612a30fb0f7783f98eb508e8f045ffb042124f86281fb41aee8705e919a3626df31b6114ec79567726e9a31c600a5d192e871de1b862412ae8e4c0"
   );
 
   const contractCode = await readFile(path.resolve(__dirname, "./token_bg.wasm"));
