@@ -2,6 +2,7 @@ import axios from "axios";
 import atob from "atob";
 import nacl from "tweetnacl";
 import url from "url";
+import { Buffer } from "buffer";
 import { blake2b } from "blakejs";
 import * as payloads from "./payloads";
 import JSBI from "jsbi";
@@ -18,7 +19,6 @@ if (typeof window === 'undefined') {
     var window = window || {};
     var global = global || window;
 }
-const BigInt = window && window.useNativeBigIntsIfAvailable ? BigInt : JSBI.BigInt;
 
 /**
  * Converts a string to a Buffer.
@@ -110,11 +110,11 @@ class Contract {
         this.contract_id = contract_id;
 
         this.contract_payload = {
-            round_idx: BigInt(0),
+            round_idx: JSBI.BigInt(0),
             round_id: "0000000000000000000000000000000000000000000000000000000000000000",
             transaction_id: "0000000000000000000000000000000000000000000000000000000000000000",
             sender_id: "0000000000000000000000000000000000000000000000000000000000000000",
-            amount: BigInt(0),
+            amount: JSBI.BigInt(0),
             params: new Uint8Array(new ArrayBuffer(0)),
         };
 
@@ -185,7 +185,7 @@ class Contract {
         }
 
         this.contract_payload.params = payloads.parseFunctionParams(...func_params);
-        this.contract_payload.amount = amount_to_send;
+        this.contract_payload.amount = payloads.normalizeNumber(amount_to_send);
         this.contract_payload.sender_id = Buffer.from(wallet.publicKey).toString("hex");
         this.contract_payload_buf = payloads.rebuildContractPayload(this.contract_payload);
 
@@ -431,7 +431,7 @@ class Wavelet {
      * @param {Object=} opts Options to be passed on for making the specified HTTP request call (optional).
      * @returns {Promise<Object>}
      */
-    async transfer(wallet, recipient, amount, gas_limit = BigInt(0), gas_deposit = BigInt(0), func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
+    async transfer(wallet, recipient, amount, gas_limit = JSBI.BigInt(0), gas_deposit = JSBI.BigInt(0), func_name = "", func_payload = new Uint8Array(new ArrayBuffer(0)), opts = {}) {
         
         const payload = this.generatePayload(TAG_TRANSFER, recipient, amount, gas_limit, gas_deposit, func_name, func_payload);
         
@@ -856,4 +856,4 @@ class Wavelet {
     }
 }
 
-export { Wavelet, Contract, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, JSBI };
+export { Wavelet, Contract, TAG_TRANSFER, TAG_CONTRACT, TAG_STAKE, TAG_BATCH, JSBI, Buffer };

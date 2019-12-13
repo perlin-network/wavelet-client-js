@@ -1,50 +1,52 @@
+const { Wavelet, Contract, TAG_TRANSFER, JSBI, Buffer } = window["wavelet-client"];
 
-const { Wavelet, Contract, TAG_TRANSFER, JSBI, Buffer } = window["wavelet-client"];//require("..");
-
-// const JSBI = require("jsbi");
-const BigInt = JSBI.BigInt;
-
-const client = new Wavelet("http://127.0.0.1:9000");
+const client = new Wavelet("https://devnet.perlin.net");
 
 (async () => {
   console.log(Wavelet.generateNewWallet());
-  // console.log(await client.getNodeInfo());
-
-  console.log(
-    await client.getAccount(
-      "400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"
-    )
-  );
-  
   const wallet = Wavelet.loadWalletFromPrivateKey(
-    "87a6813c3b4cf534b6ae82db9b1409fa7dbd5c13dba5858970b56084c4a930eb400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"
+    "ba3daa36b1612a30fb0f7783f98eb508e8f045ffb042124f86281fb41aee8705e919a3626df31b6114ec79567726e9a31c600a5d192e871de1b862412ae8e4c0"
   );
+
+  const accountResponse = await client.getAccount(
+    "400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"
+  );
+  console.log("account", accountResponse);
   
+  try {
+    const txResponse = await client.transfer(
+      wallet,
+      "f03bb6f98c4dfd31f3d448c7ec79fa3eaa92250112ada43471812f4b1ace6467",
+      0
+    );
+    console.log("txResponse", txResponse);
+    await client.pollTransactions(
+      {
+        onTransactionApplied: data => {
+          console.log("tx applied", data);
+        }
+      },
+      {
+        id: txResponse.id
+      }
+    );
 
-  await client.pollTransactions(
-    { onTransactionApplied: console.log },
-    {
-      tag: TAG_TRANSFER,
-      sender:
-        "400056ee68a7cc2695222df05ea76875bc27ec6e61e8e62317c336157019c405"
-    }
-  );
-  await client.transfer(wallet, "696937c2c8df35dba0169de72990b80761e51dd9e2411fa1fce147f68ade830a", 12);
-  return;
+    const transfer = await client.getTransaction(
+      txResponse.id
+    );
+    console.log(Wavelet.parseTransaction(transfer.tag, transfer.payload));
+  } catch (err) {
+    alert(err.message || err);
+  }
 
-  const transfer = await client.getTransaction(
-    "575cec95a7736bf7918d07f6f2b5892c1d1f89ecfd6008144f051e5a4acd63f5"
-  );
-  console.log(Wavelet.parseTransaction(transfer.tag, transfer.payload));
-
-  
   const account = await client.getAccount(
     Buffer.from(wallet.publicKey).toString("hex")
   );
 
+  console.log("account", account);
   const contract = new Contract(
     client,
-    "9d57bb96f02f49029a1a83ffa7769b48eb149dd19d968d57e5ab29f25ca9e450"
+    "4b6b43eba9eb8ed7402e0b7103a3eab9dfba48be05e359557d8c71f6a8513563"
   );
   await contract.init();
 
@@ -60,8 +62,8 @@ const client = new Wavelet("http://127.0.0.1:9000");
       wallet,
       "balance",
       BigInt(0),
-      BigInt(0),
-      JSBI.subtract(BigInt(account.balance), BigInt(1000000)),
+      JSBI.subtract(JSBI.BigInt(account.balance), JSBI.BigInt(1000000)),
+      1000n,
       {
         type: "raw",
         value:
