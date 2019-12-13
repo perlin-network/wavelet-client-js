@@ -160,7 +160,7 @@ export const parseFunctionParams = (...params) => {
 
 export const getTransaction = (tag, nonce, block, innerPayload) => {
 
-    // toBufferBE breaks in noced as it expects BigInt values
+    // toBufferBE breaks in node as it expects BigInt values
     if (typeof BigInt !== "undefined") {
         nonce = BigInt(nonce);
         block = BigInt(block);
