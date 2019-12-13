@@ -39,7 +39,7 @@ export const getTransfer = (
         func_name.length > 0 ||
         func_payload.length > 0
     ) {
-        if (func_name.length === 0) {
+        if (func_name.length === 0 && JSBI.GT(amount, BigInt(0))) {
             // Default to 'on_money_received' if no func name is specified.
             func_name = "on_money_received";
         }
